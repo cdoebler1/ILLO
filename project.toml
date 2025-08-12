@@ -2,15 +2,15 @@
 # CircuitPython Project Configuration
 
 [project]
-name = "moon-colony-illo"
+name = "illo"
 version = "1.0.1"
 description = "AI-Powered UFO Controller for Adafruit Circuit Playground Bluefruit"
 authors = ["Charles Doebler <charles@feralcatai.com>"]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/cdoebler1/Moon-Colony/tree/main/ILLO"
-repository = "https://github.com/cdoebler1/Moon-Colony"
-documentation = "https://github.com/cdoebler1/Moon-Colony/blob/main/ILLO/README.md"
+homepage = "https://github.com/cdoebler1/ILLO"
+repository = "https://github.com/cdoebler1/ILLO"
+documentation = "https://github.com/cdoebler1/ILLO/blob/main/README.md"
 keywords = ["circuitpython", "ai", "iot", "led", "bluetooth", "adafruit"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -24,13 +24,10 @@ classifiers = [
 ]
 
 [project.urls]
-"Bug Reports" = "https://github.com/cdoebler1/Moon-Colony/issues"
-"Source" = "https://github.com/cdoebler1/Moon-Colony/tree/main/ILLO"
-"Documentation" = "https://github.com/cdoebler1/Moon-Colony/blob/main/ILLO/README.md"
+"Bug Reports" = "https://github.com/cdoebler1/ILLO/issues"
+"Source" = "https://github.com/cdoebler1/ILLO"
+"Documentation" = "https://github.com/cdoebler1/ILLO/blob/main/README.md"
 
-[build-system]
-requires = ["circuitpython"]
-build-backend = "circuitpython"
 
 [tool.circuitpython]
 # CircuitPython specific configuration

@@ -1,4 +1,4 @@
-# 🛸 Moon Colony ILLO - AI-Powered UFO Controller
+# 🛸 ILLO - AI-Powered UFO Controller
 
 An intelligent UFO lighting system powered by CircuitPython and machine learning, designed for the Adafruit Circuit Playground Bluefruit.
 
@@ -18,21 +18,20 @@ An intelligent UFO lighting system powered by CircuitPython and machine learning
    - Develops unique personality traits over time
    - Autonomous attention-seeking and mood responses
 
-2. **Dance Party** 🕺
-   - Advanced beat detection and rhythm synchronization
-   - Currently runs standalone (BLE sync disabled for memory safety)
-   - Social interaction-style visuals
-
-3. **Intergalactic Cruising** 🌌
+2. **Intergalactic Cruising** 🌌
    - Classic sci-fi audio-reactive patterns
    - Smooth rotating light trails
    - Ambient sound response
 
-4. **Meditate** 🧘
+3. **Meditate** 🧘
    - Peaceful breathing patterns
    - Gentle pulsing lights for relaxation
    - Mindfulness-focused lighting
 
+4. **Dance Party** 🕺
+   - Advanced beat detection and rhythm synchronization
+   - Currently runs standalone (BLE sync disabled for memory safety)
+   - Social interaction-style visuals
 
 ## 🔧 Hardware Requirements
 
@@ -43,9 +42,9 @@ An intelligent UFO lighting system powered by CircuitPython and machine learning
 
 ## 📦 Installation
 
-1. **Install CircuitPython** on your Circuit Playground Bluefruit
-2. **Copy all files** to the CIRCUITPY drive
-3. **Install required libraries** from the Adafruit Bundle:
+1. **Install CircuitPython** on your Circuit Playground Bluefruit using the firmware files in the `firmware/` directory
+2. **Copy all files** (except `firmware/` directory) to the CIRCUITPY drive
+3. **Install required libraries** from the Adafruit Bundle to the `lib/` folder:
    - adafruit_circuitplayground
    - neopixel
    - adafruit_ble
@@ -122,16 +121,18 @@ ILLO/
 ├── code.py                    # Main application entry point
 ├── config.json               # User configuration settings
 ├── project.toml             # Project metadata and dependencies
+├── LICENSE                  # MIT License
 ├── ufo_intelligence.py      # AI behavior system
-├── dance_party.py          # Standalone beat detection (BLE sync disabled)
 ├── intergalactic_cruising.py # Audio-reactive patterns
 ├── meditate.py             # Relaxation modes
+├── dance_party.py          # Standalone beat detection (BLE sync disabled)
 ├── base_routine.py         # Base class for all modes
 ├── hardware_manager.py     # Hardware abstraction layer
 ├── audio_processor.py      # Sound analysis and FFT
 ├── color_utils.py          # Color manipulation functions
 ├── physical_actions.py     # Tap and shake responses
 ├── sync_manager.py         # Bluetooth synchronization (not enabled in current build)
+├── firmware/               # CircuitPython firmware files (.uf2)
 ├── lib/                    # CircuitPython libraries
 └── docs/                   # Documentation files
 ```
@@ -173,7 +174,7 @@ Enable debug output by setting `debug_*` flags in config.json:
 
 ## 📄 License
 
-MIT License - See project.toml for details
+MIT License - See LICENSE file for details
 
 ## 🙏 Acknowledgments
 
