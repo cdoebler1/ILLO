@@ -1,0 +1,80 @@
+# Moon Colony ILLO Project Metadata
+# CircuitPython Project Configuration
+
+[project]
+name = "moon-colony-illo"
+version = "1.0.1"
+description = "AI-Powered UFO Controller for Adafruit Circuit Playground Bluefruit"
+authors = ["Charles Doebler <charles@feralcatai.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/cdoebler1/Moon-Colony/tree/main/ILLO"
+repository = "https://github.com/cdoebler1/Moon-Colony"
+documentation = "https://github.com/cdoebler1/Moon-Colony/blob/main/ILLO/README.md"
+keywords = ["circuitpython", "ai", "iot", "led", "bluetooth", "adafruit"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education", 
+    "Topic :: System :: Hardware",
+    "Topic :: Artistic Software",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: Implementation :: CircuitPython",
+]
+
+[project.urls]
+"Bug Reports" = "https://github.com/cdoebler1/Moon-Colony/issues"
+"Source" = "https://github.com/cdoebler1/Moon-Colony/tree/main/ILLO"
+"Documentation" = "https://github.com/cdoebler1/Moon-Colony/blob/main/ILLO/README.md"
+
+[build-system]
+requires = ["circuitpython"]
+build-backend = "circuitpython"
+
+[tool.circuitpython]
+# CircuitPython specific configuration
+target_board = "circuitplayground_bluefruit"
+frozen_modules = []
+main_file = "code.py"
+required_libraries = [
+    "adafruit_circuitplayground",
+    "neopixel", 
+    "adafruit_ble",
+    "adafruit_bluefruit_connect",
+    "simpleio"
+]
+
+[project.device]
+# Hardware requirements and specifications
+board = "Adafruit Circuit Playground Bluefruit"
+circuitpython_version = ">=7.0.0"
+features = [
+    "bluetooth",
+    "neopixels", 
+    "accelerometer",
+    "microphone",
+    "buttons",
+    "switch"
+]
+
+[project.device.memory_requirements]
+flash = "2MB"
+ram = "256KB"
+
+[project.routines]
+# Available lighting routines
+default = "ufo_intelligence"
+available = [
+    "ufo_intelligence",
+    "intergalactic_cruising",
+    "meditate",
+    "dance_party"
+]
+
+[project.ai]
+# AI system configuration
+learning_enabled = true
+memory_persistence = false
+personality_development = true
+interaction_tracking = true

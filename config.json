@@ -1,0 +1,9 @@
+{
+  "routine": 1,
+  "mode": 1,
+  "volume": 0,
+  "name": "UFO",
+  "debug_bluetooth": false,
+  "debug_audio": false,
+  "ufo_persistent_memory": false
+}
