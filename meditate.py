@@ -3,13 +3,12 @@
 
 from base_routine import BaseRoutine
 import time
-import math
 from adafruit_circuitplayground import cp  # Missing - needed for cp.play_tone()
 
 class Meditate(BaseRoutine):
     def __init__(self):
         super().__init__()
-        self.breath_cycle_time = 8.0  # 8 second breathing cycle
+        self.breath_cycle_time = 8.0  # 8-second breathing cycle
         self.start_time = time.monotonic()
         
     def run(self, mode, volume):  # ← Add 'self' parameter here
@@ -28,7 +27,7 @@ class Meditate(BaseRoutine):
         if cycle_position < 0.4:  # Inhale phase
             intensity = int(255 * (cycle_position / 0.4))
             self._update_breathing_display(color_func, intensity, "inhale")
-            if volume == 1 and cycle_position < 0.1:  # Gentle tone at start of inhale
+            if volume == 1 and cycle_position < 0.1:  # Gentle tone at the start of inhale
                 cp.play_tone(220, 0.1)
                 
         elif cycle_position < 0.6:  # Hold phase
@@ -39,7 +38,7 @@ class Meditate(BaseRoutine):
             exhale_progress = (cycle_position - 0.6) / 0.4
             intensity = int(255 * (1 - exhale_progress))
             self._update_breathing_display(color_func, intensity, "exhale")
-            if volume == 1 and exhale_progress > 0.9:  # Gentle tone at end of exhale
+            if volume == 1 and exhale_progress > 0.9:  # Gentle tone at the end of exhale
                 cp.play_tone(180, 0.1)
     
     def _update_breathing_display(self, color_func, intensity, phase):
@@ -47,8 +46,8 @@ class Meditate(BaseRoutine):
         self.hardware.clear_pixels()
         
         if phase == "inhale":
-            # Gradual illumination from center outward
-            center_pixels = [4, 5]  # Center of 10-pixel ring
+            # Gradual illumination from the center outward
+            center_pixels = [4, 5]  # Center of a 10-pixel ring
             lit_count = max(1, int((intensity / 255) * 5))
             
             for i in range(lit_count):

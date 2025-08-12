@@ -44,7 +44,7 @@ def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio):
                 existing_config = json.load(f)
                 config_data['ufo_persistent_memory'] = existing_config.get('ufo_persistent_memory', False)
         except (OSError, ValueError):
-            pass  # Use default if can't read existing config
+            pass  # Use default if it can't read existing config
         
         with open('config.json', 'w') as config_file:
             json.dump(config_data, config_file)
@@ -69,7 +69,7 @@ def show_routine_feedback(routine):
     
     info = routine_info.get(routine, {"color": (255, 255, 255), "name": "Unknown"})
     
-    # Light up pixels equal to routine number
+    # Light up pixels equal to the routine number
     for i in range(routine):
         cp.pixels[i] = info["color"]
     
@@ -90,8 +90,8 @@ def show_mode_feedback(mode):
     
     info = mode_info.get(mode, {"color": (255, 255, 255), "name": "Unknown"})
     
-    # Show mode with a different pattern - spread pixels around ring
-    positions = [0, 3, 6, 9]  # Spread around 10-pixel ring
+    # Show mode with different patterns - spread pixels around the ring
+    positions = [0, 3, 6, 9]  # Spread around a 10-pixel ring
     for i in range(mode):
         if i < len(positions):
             cp.pixels[positions[i]] = info["color"]
@@ -118,7 +118,7 @@ def main():
     config_save_timer = 0
     config_changed = False
     
-    # Show initial state
+    # Show the initial state
     print("🛸 UFO System Initialized")
     print("📋 Current: Routine %d, Mode %d, Volume %s" % (routine, mode, "ON" if volume else "OFF"))
     
