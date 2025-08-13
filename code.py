@@ -22,10 +22,11 @@ def load_config():
     with open('config.json') as config_file:
         data = json.load(config_file)
     return (data['routine'], data['mode'], data['volume'], data['name'], 
-            data.get('debug_bluetooth', False), data.get('debug_audio', False))
+            data.get('debug_bluetooth', False), data.get('debug_audio', False),
+            data.get('penn_state_enabled', True), data.get('ufo_persistent_memory', False))  # Load persistent memory setting
 
 
-def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio):
+def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, penn_state_enabled, ufo_persistent_memory):
     """Save current configuration to config.json file."""
     try:
         config_data = {
@@ -35,7 +36,8 @@ def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio):
             'name': name,
             'debug_bluetooth': debug_bluetooth,
             'debug_audio': debug_audio,
-            'ufo_persistent_memory': False  # Keep existing setting
+            'penn_state_enabled': penn_state_enabled,  # Save Penn State setting
+            'ufo_persistent_memory': ufo_persistent_memory
         }
         
         # Try to preserve ufo_persistent_memory setting from existing config
@@ -103,10 +105,10 @@ def show_mode_feedback(mode):
 def main():
     """Main application loop."""
     # Initialize default conditions
-    routine, mode, volume, name, debug_bluetooth, debug_audio = load_config()
+    routine, mode, volume, name, debug_bluetooth, debug_audio, penn_state_enabled, ufo_persistent_memory = load_config()
     
     # Create routine instances with debug settings
-    ufo_ai = UFOIntelligence()  # AI routine - primary instance
+    ufo_ai = UFOIntelligence(persistent_memory=ufo_persistent_memory, penn_state_enabled=penn_state_enabled)  # Use config setting
     cruiser = IntergalacticCruising()  # Audio-reactive routine
     meditator = Meditate()  # Breathing pattern routine
     dancer = DanceParty(name, debug_bluetooth, debug_audio)  # Synchronized dance routine
@@ -121,6 +123,8 @@ def main():
     # Show the initial state
     print("🛸 UFO System Initialized")
     print("📋 Current: Routine %d, Mode %d, Volume %s" % (routine, mode, "ON" if volume else "OFF"))
+    print("🏈 Penn State detection: %s" % ("ENABLED" if penn_state_enabled else "DISABLED"))
+    print("💾 UFO persistent memory: %s" % ("ENABLED" if ufo_persistent_memory else "DISABLED"))
     
     # Main application loop
     cp.detect_taps = 1
@@ -178,7 +182,7 @@ def main():
         
         # Save config after a delay (to batch multiple rapid changes)
         if config_changed and (current_time - config_save_timer > 2.0):
-            save_config(routine, mode, volume, name, debug_bluetooth, debug_audio)
+            save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, penn_state_enabled, ufo_persistent_memory)
             config_changed = False
         
         # Execute the selected routine

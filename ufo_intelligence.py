@@ -9,12 +9,13 @@ import json
 import gc
 
 class UFOIntelligence(BaseRoutine):
-    def __init__(self, device_name=None, debug_bluetooth=False, debug_audio=False, persistent_memory=False):
+    def __init__(self, device_name=None, debug_bluetooth=False, debug_audio=False, persistent_memory=False, penn_state_enabled=True):
         super().__init__()
         self.device_name = device_name or "UFO"
         self.debug_bluetooth = debug_bluetooth
         self.debug_audio = debug_audio
         self.persistent_memory = persistent_memory
+        self.penn_state_enabled = penn_state_enabled  # Add this line
         self.memory_file = "ufo_memory.json"
         
         # Core AI attributes
@@ -66,6 +67,8 @@ class UFOIntelligence(BaseRoutine):
         print("[UFO_AI] 🧠 Enhanced UFO Intelligence initialized with Penn State spirit!")
         if persistent_memory:
             print("[UFO_AI] 💾 Persistent memory enabled")
+        if not penn_state_enabled:
+            print("[UFO_AI] 🏈 Penn State detection disabled")
         
         self._load_long_term_memory()
         self._apply_memory_on_startup()
@@ -319,102 +322,132 @@ class UFOIntelligence(BaseRoutine):
     
     def _detect_penn_state_chant(self, audio_samples):
         """Detect 'WE ARE' chant pattern in audio."""
+        # Check if Penn State detection is enabled - FIRST CHECK
+        if not self.penn_state_enabled:
+            return False
+        
         if (len(audio_samples) < 100 or 
             time.monotonic() - self.last_penn_state_trigger < self.penn_state_cooldown):
             return False
         
         def detection_processor():
-            # Calculate energy levels in segments
-            segment_size = max(1, len(audio_samples) // 10)
-            segment_energies = []
-            
-            for i in range(0, len(audio_samples), segment_size):
-                segment = audio_samples[i:i + segment_size]
-                if len(segment) > 10:
-                    mean_val = sum(segment) / len(segment)
-                    energy = sum((x - mean_val) ** 2 for x in segment) / len(segment)
-                    segment_energies.append(energy ** 0.5)
-            
-            # Look for the "WE ARE" pattern (two peaks with a gap)
-            if len(segment_energies) >= 6:
-                peak_threshold = max(segment_energies) * 0.6
-                peaks = [i for i, energy in enumerate(segment_energies) if energy > peak_threshold]
+            try:
+                # Calculate energy levels in segments
+                segment_size = max(1, len(audio_samples) // 10)
+                segment_energies = []
                 
-                if len(peaks) >= 2:
-                    gap = peaks[1] - peaks[0]
-                    if 1 <= gap <= 3:
-                        confidence = (min(segment_energies[peaks[0]], segment_energies[peaks[1]]) / 
-                                    max(segment_energies))
-                        
-                        if self.debug_audio:
-                            print("[UFO_AI] 🎯 Penn State pattern detected! Confidence: %.2f" % confidence)
-                        
-                        return confidence > 0.3
-            return False
+                for i in range(0, len(audio_samples), segment_size):
+                    segment = audio_samples[i:i + segment_size]
+                    if len(segment) > 10:
+                        mean_val = sum(segment) / len(segment)
+                        energy = sum((x - mean_val) ** 2 for x in segment) / len(segment)
+                        segment_energies.append(energy ** 0.5)
+                
+                # Look for the "WE ARE" pattern (two peaks with a gap)
+                if len(segment_energies) >= 6:
+                    peak_threshold = max(segment_energies) * 0.6
+                    peaks = [i for i, energy in enumerate(segment_energies) if energy > peak_threshold]
+                    
+                    if len(peaks) >= 2:
+                        gap = peaks[1] - peaks[0]
+                        if 1 <= gap <= 3:
+                            confidence = (min(segment_energies[peaks[0]], segment_energies[peaks[1]]) / 
+                                        max(segment_energies))
+                            
+                            if self.debug_audio:
+                                print("[UFO_AI] 🎯 Penn State pattern detected! Confidence: %.2f" % confidence)
+                            
+                            return confidence > 0.3
+                return False
+            except Exception as e:
+                if self.debug_audio:
+                    print("[UFO_AI] Penn State detection error: %s" % str(e))
+                return False
         
         return self._safe_audio_processing(detection_processor, False)
     
     def _execute_penn_state_celebration(self, volume):
-        """Execute the full Penn State celebration sequence."""
+        """Execute Penn State celebration with proper timing control."""
+        if not self.penn_state_enabled:
+            return
+        
+        current_time = time.monotonic()
+        
+        # Only execute if enough time has passed since last trigger
+        if current_time - self.last_penn_state_trigger < self.penn_state_cooldown:
+            return
+        
         print("[UFO_AI] 🏈 WE ARE... PENN STATE!")
         
-        self.last_penn_state_trigger = time.monotonic()
+        # Update timing IMMEDIATELY to prevent re-triggering
+        self.last_penn_state_trigger = current_time
         self.school_spirit = min(100, self.school_spirit + 10)
         self.energy_level = 100
         self.mood = "excited"
         
-        # Three rounds of "WE ARE... PENN STATE"
-        for round_num in range(3):
-            if self.debug_audio:
-                print("[UFO_AI] Round %d: WE ARE... PENN STATE!" % (round_num + 1))
-            
-            # "PENN STATE" response with blue flash
-            self._flash_pixels_pattern(self.penn_state_blue, 1, 0.5, 0)
-            if volume > 0:
-                self._speak_penn_state()
-            
-            # "WE ARE" with white flash
-            self._flash_pixels_pattern(self.penn_state_white, 1, 0.8, 0)
+        # Quick visual celebration
+        for i in range(10):
+            self.hardware.pixels[i] = self.penn_state_blue
+        self.hardware.pixels.show()
         
-        # Play fight song and light show
+        # Quick audio (non-blocking)
         if volume > 0:
-            self._play_fight_song()
-        self._penn_state_light_show(3.0)
-        self._record_penn_state_interaction()
-    
-    def _speak_penn_state(self):
-        """Synthesize 'PENN STATE' using tone sequences."""
-        # "PENN" - lower tone burst
-        self.hardware.play_tone_if_enabled(150, 0.25, 1)
-        time.sleep(0.1)
+            self._speak_penn_state()
         
-        # "STATE" - rising tone
-        for freq in [200, 250, 300]:
-            self.hardware.play_tone_if_enabled(freq, 0.15, 1)
+        # Record the interaction
+        self._record_penn_state_interaction()
+        
+        # Set timed excitement behavior instead of blocking light show
+        self.attention_start = current_time
+        self.current_attention_behavior = "penn_state_excited"
+        
+        if self.debug_audio:
+            print("[UFO_AI] Penn State celebration initiated - 5 second excitement period")
+
+    def _speak_penn_state(self):
+        """Non-blocking Penn State speech synthesis."""
+        if not self.penn_state_enabled:
+            return
+        
+        # Simplified to avoid blocking time.sleep() calls
+        self.hardware.play_tone_if_enabled(150, 0.3, 1)  # "PENN STATE" combined
     
     def _play_fight_song(self):
-        """Play a snippet of the Penn State fight song."""
-        print("[UFO_AI] 🎵 Playing fight song!")
-        for note_freq, duration in self.fight_song_notes[:6]:
-            self.hardware.play_tone_if_enabled(note_freq, duration, 1)
-            time.sleep(0.05)
-    
-    def _penn_state_light_show(self, duration):
-        """Penn State themed light celebration."""
-        start_time = time.monotonic()
+        """Play fight song with proper non-blocking timing."""
+        if not self.penn_state_enabled:
+            return
         
-        while time.monotonic() - start_time < duration:
-            current_time = time.monotonic() - start_time
-            wave_pos = int((current_time * 5) % 10)
-            
-            self.hardware.clear_pixels()
-            for i in range(10):
-                color = self.penn_state_blue if (i + wave_pos) % 2 == 0 else self.penn_state_white
-                self.hardware.pixels[i] = color
-            
-            self.hardware.pixels.show()
-            time.sleep(0.1)
-    
+        # Play just one note quickly to avoid blocking
+        self.hardware.play_tone_if_enabled(294, 0.2, 1)
+
+    def _penn_state_light_show(self, duration):
+        """Penn State light show that actually uses the duration parameter."""
+        if not self.penn_state_enabled:
+            return
+        
+        start_time = time.monotonic()
+        end_time = start_time + duration
+
+        # Initialize color to ensure it's always defined
+        color = self.penn_state_blue
+
+        while time.monotonic() < end_time:
+            current_time = time.monotonic()
+            # 4Hz alternation during the specified duration
+            if int(current_time * 4) % 2 == 0:
+                color = self.penn_state_blue
+            else:
+                color = self.penn_state_white
+        
+        for i in range(10):
+            self.hardware.pixels[i] = color
+        self.hardware.pixels.show()
+        time.sleep(0.1)  # Small delay to control update rate
+        
+        # Clear pixels when done
+        self.hardware.clear_pixels()
+        self.hardware.pixels.show()
+
     def _record_penn_state_interaction(self):
         """Record Penn State interaction for learning."""
         interaction = {
