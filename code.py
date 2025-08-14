@@ -24,11 +24,10 @@ def load_config():
     return (data['routine'], data['mode'], data['volume'], data['name'], 
             data.get('debug_bluetooth', False), data.get('debug_audio', False),
             data.get('college_spirit_enabled', True), data.get('college', 'none'),
-            data.get('ufo_persistent_memory', False))
+            data.get('ufo_persistent_memory', False),
+            data.get('college_chant_detection_enabled', True))  # NEW
 
-
-# Fix the save_config function to match the new parameters:
-def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory):
+def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory, college_chant_detection_enabled=True):
     """Save current configuration to config.json file."""
     try:
         config_data = {
@@ -40,7 +39,8 @@ def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, colle
             'debug_audio': debug_audio,
             'college_spirit_enabled': college_spirit_enabled,  # Fixed parameter name
             'college': college,  # Add college parameter
-            'ufo_persistent_memory': ufo_persistent_memory
+            'ufo_persistent_memory': ufo_persistent_memory,
+            'college_chant_detection_enabled': college_chant_detection_enabled  # NEW
         }
         
         with open('config.json', 'w') as config_file:
@@ -100,7 +100,7 @@ def show_mode_feedback(mode):
 def main():
     """Main application loop."""
     # Update this line to unpack the new config values:
-    routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory = load_config()
+    routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory, college_chant_detection_enabled = load_config()
    
     # Lazy loading variables
     current_routine_instance = None

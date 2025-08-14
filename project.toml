@@ -72,6 +72,6 @@ available = [
 [project.ai]
 # AI system configuration
 learning_enabled = true
-memory_persistence = false
+memory_persistence = true
 personality_development = true
 interaction_tracking = true

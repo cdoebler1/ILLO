@@ -14,8 +14,10 @@ learning, designed for the Adafruit Circuit Playground Bluefruit.
 - **🎨 Dynamic Lighting**: 10 RGB NeoPixel LEDs with 4 routines and 3
   color themes
 - **🤝 Interactive**: Responds to taps, shakes, and environmental sounds
-- **💾 Persistent Memory (configurable)**: Optional long-term memory to save
-  AI personality between sessions
+- **💾 Persistent Memory (default: ON): Illo now remembers its personality, moods, 
+    -   and preferences across power cycles. This means your UFO companion continues
+    -   growing and learning over time instead of resetting with each session.
+    -   The setting can be toggled in config.json.
 
 ## 🚀 Operating Modes
 
