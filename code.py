@@ -23,10 +23,12 @@ def load_config():
         data = json.load(config_file)
     return (data['routine'], data['mode'], data['volume'], data['name'], 
             data.get('debug_bluetooth', False), data.get('debug_audio', False),
-            data.get('penn_state_enabled', True), data.get('ufo_persistent_memory', False))  # Load persistent memory setting
+            data.get('college_spirit_enabled', True), data.get('college', 'none'),
+            data.get('ufo_persistent_memory', False))
 
 
-def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, penn_state_enabled, ufo_persistent_memory):
+# Fix the save_config function to match the new parameters:
+def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory):
     """Save current configuration to config.json file."""
     try:
         config_data = {
@@ -36,17 +38,10 @@ def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, penn_
             'name': name,
             'debug_bluetooth': debug_bluetooth,
             'debug_audio': debug_audio,
-            'penn_state_enabled': penn_state_enabled,  # Save Penn State setting
+            'college_spirit_enabled': college_spirit_enabled,  # Fixed parameter name
+            'college': college,  # Add college parameter
             'ufo_persistent_memory': ufo_persistent_memory
         }
-        
-        # Try to preserve ufo_persistent_memory setting from existing config
-        try:
-            with open('config.json', 'r') as f:
-                existing_config = json.load(f)
-                config_data['ufo_persistent_memory'] = existing_config.get('ufo_persistent_memory', False)
-        except (OSError, ValueError):
-            pass  # Use default if it can't read existing config
         
         with open('config.json', 'w') as config_file:
             json.dump(config_data, config_file)
@@ -104,14 +99,12 @@ def show_mode_feedback(mode):
 
 def main():
     """Main application loop."""
-    # Initialize default conditions
-    routine, mode, volume, name, debug_bluetooth, debug_audio, penn_state_enabled, ufo_persistent_memory = load_config()
-    
-    # Create routine instances with debug settings
-    ufo_ai = UFOIntelligence(persistent_memory=ufo_persistent_memory, penn_state_enabled=penn_state_enabled)  # Use config setting
-    cruiser = IntergalacticCruising()  # Audio-reactive routine
-    meditator = Meditate()  # Breathing pattern routine
-    dancer = DanceParty(name, debug_bluetooth, debug_audio)  # Synchronized dance routine
+    # Update this line to unpack the new config values:
+    routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory = load_config()
+   
+    # Lazy loading variables
+    current_routine_instance = None
+    active_routine_number = 0  # Forces creation on the first loop
     
     # Button debouncing variables
     last_button_a_time = 0
@@ -123,7 +116,7 @@ def main():
     # Show the initial state
     print("🛸 UFO System Initialized")
     print("📋 Current: Routine %d, Mode %d, Volume %s" % (routine, mode, "ON" if volume else "OFF"))
-    print("🏈 Penn State detection: %s" % ("ENABLED" if penn_state_enabled else "DISABLED"))
+    print("🏈 College chant detection: %s" % ("ENABLED" if college_spirit_enabled else "DISABLED"))
     print("💾 UFO persistent memory: %s" % ("ENABLED" if ufo_persistent_memory else "DISABLED"))
     
     # Main application loop
@@ -135,25 +128,52 @@ def main():
         # Update volume based on switch position
         volume = cp.switch
         
+        # Create a routine instance only when needed
+        if routine != active_routine_number:
+            # Clean up previous instance
+            if current_routine_instance:
+                del current_routine_instance
+                current_routine_instance = None
+                import gc
+                gc.collect()  # Force garbage collection
+            
+            # Fix the UFOIntelligence instantiation:
+            if routine == 1:
+                current_routine_instance = UFOIntelligence(
+                    device_name=name,
+                    persistent_memory=ufo_persistent_memory, 
+                    college_spirit_enabled=college_spirit_enabled,
+                    college=college
+                )
+            elif routine == 2:
+                current_routine_instance = IntergalacticCruising()
+            elif routine == 3:
+                current_routine_instance = Meditate()
+            elif routine == 4:
+                current_routine_instance = DanceParty(name, debug_bluetooth, debug_audio)
+            
+            active_routine_number = routine
+            print("🔄 Loaded routine %d" % routine)
+        
         # Handle physical interactions - UFO AI learns from ALL interactions
         if cp.tapped:
             PhysicalActions.tapped(volume)
             # UFO AI learns from interactions on any routine
-            if routine == 1:  # UFO Intelligence is now routine 1
-                ufo_ai.last_interaction = time.monotonic()
+            if routine == 1 and current_routine_instance:  # UFO Intelligence is now routine 1
+                current_routine_instance.last_interaction = time.monotonic()
                 # If UFO was seeking attention, record success
-                if ufo_ai.mood == "curious":
-                    ufo_ai.record_successful_attention()
+                if current_routine_instance.mood == "curious":
+                    current_routine_instance.record_successful_attention()
         
         if cp.shake(shake_threshold=11):
             PhysicalActions.shaken(volume)
             # UFO AI responds to shake as interaction
-            if routine == 1:  # UFO Intelligence is now routine 1
-                ufo_ai.last_interaction = time.monotonic()
-                ufo_ai.energy_level = min(1.0, ufo_ai.energy_level + 0.3)
+            if routine == 1 and current_routine_instance:  # UFO Intelligence is now routine 1
+                current_routine_instance.last_interaction = time.monotonic()
+                current_routine_instance.energy_level = min(1.0, current_routine_instance.energy_level + 0.3)
                 # If UFO was seeking attention, record success
-                if ufo_ai.mood == "curious":
-                    ufo_ai.record_successful_attention()
+                if current_routine_instance.mood == "curious":
+                    current_routine_instance.record_successful_attention()
         
         # Handle button presses with debouncing and improved feedback
         if cp.button_a and (current_time - last_button_a_time > button_debounce_delay):
@@ -180,20 +200,14 @@ def main():
             cp.pixels.fill((0, 0, 0))
             cp.pixels.show()
         
-        # Save config after a delay (to batch multiple rapid changes)
+        # Fix the save_config call:
         if config_changed and (current_time - config_save_timer > 2.0):
-            save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, penn_state_enabled, ufo_persistent_memory)
+            save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory)
             config_changed = False
         
         # Execute the selected routine
-        if routine == 1:
-            ufo_ai.run(mode, volume)        # 🧠 UFO Intelligence (AI behavior)
-        elif routine == 2:
-            cruiser.run(mode, volume)       # 🌌 Intergalactic Cruising (Audio-reactive)
-        elif routine == 3:
-            meditator.run(mode, volume)     # 🧘 Meditate (Breathing patterns)
-        elif routine == 4:
-            dancer.run(mode, volume)        # 🎵 Dance Party (Synchronized)
+        if current_routine_instance:
+            current_routine_instance.run(mode, volume)
 
 
 if __name__ == "__main__":

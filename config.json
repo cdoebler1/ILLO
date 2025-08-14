@@ -5,6 +5,7 @@
     "name": "UFO",
     "debug_bluetooth": false,
     "debug_audio": false,
-    "penn_state_enabled": false,
+    "college_spirit_enabled": true,
+    "college": "penn_state",
     "ufo_persistent_memory": false
 }
