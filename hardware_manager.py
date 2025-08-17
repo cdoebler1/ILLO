@@ -35,3 +35,21 @@ class HardwareManager:
     def get_accelerometer(self):
         """Get accelerometer data from the Circuit Playground."""
         return cp.acceleration
+    
+    def tap_detected(self):
+        """Check if a tap has been detected."""
+        return cp.tapped
+    
+    def shake_detected(self, threshold=11):
+        """Check if a shake has been detected."""
+        return cp.shake(shake_threshold=threshold)
+    
+    @property
+    def light(self):
+        """Get the current light sensor reading."""
+        return cp.light
+    
+    @property
+    def temperature(self):
+        """Get the current temperature reading."""
+        return cp.temperature
