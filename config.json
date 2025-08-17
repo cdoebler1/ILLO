@@ -6,6 +6,7 @@
     "debug_bluetooth": false,
     "debug_audio": false,
     "college_spirit_enabled": true,
+    "college_chant_detection_enabled": true,
     "college": "penn_state",
-    "ufo_persistent_memory": false
+    "ufo_persistent_memory": true
 }

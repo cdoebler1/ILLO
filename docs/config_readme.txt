@@ -34,9 +34,8 @@ debug_audio (boolean): Enable/disable audio processing debug logging
   false = Hide audio analysis debug messages (default)
 
 ufo_persistent_memory (boolean): Enable AI long-term memory between power cycles
-  Default: true (AI personality/preferences are saved to ufo_memory.json between sessions)
+  true = Default (saves AI personality/preferences to ufo_memory.json between sessions)
   false = Resets AI memory on power cycle
-  true = Saves AI personality/preferences to ufo_memory.json between sessions
   Note: Only affects UFO Intelligence routine; increases flash write cycles
 
 Hardware Controls:
