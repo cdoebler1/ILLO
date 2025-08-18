@@ -9,6 +9,7 @@
 
 import time
 import json
+import gc
 from adafruit_circuitplayground import cp
 from intergalactic_cruising import IntergalacticCruising
 from physical_actions import PhysicalActions
@@ -132,10 +133,12 @@ def main():
     config_save_timer = 0
     config_changed = False
 
+    # Read actual switch position for startup message
+    actual_volume = cp.switch  # Read the actual switch position
+
     # Show the initial state
     print("🛸 UFO System Initialized")
-    print("📋 Current: Routine %d, Mode %d, Volume %s" % (routine, mode, "ON" if volume else "OFF"))
-    print("🏈 College chant detection: %s" % ("ENABLED" if college_spirit_enabled else "DISABLED"))
+    print("📋 Current: Routine %d, Mode %d, Sound %s" % (routine, mode, "ON" if actual_volume else "OFF"))
 
     # Explicit persistent-memory boot status
     if ufo_persistent_memory and not _fs_is_writable:
@@ -160,8 +163,7 @@ def main():
             if current_routine_instance:
                 del current_routine_instance
                 current_routine_instance = None
-                import gc
-                gc.collect()  # Force garbage collection
+                gc.collect()  # Force garbage collection - use the gc imported at the top
 
             # Fix the UFOIntelligence instantiation:
             if routine == 1:
@@ -231,6 +233,20 @@ def main():
             save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college,
                         ufo_persistent_memory)
             config_changed = False
+
+        # Resource monitoring (every 10 seconds)
+        if int(current_time) % 10 == 0 and int(
+                current_time * 10) % 10 == 0:  # Once per 10 seconds
+            gc.collect()  # Now gc is properly imported
+            free_mem = gc.mem_free()
+            alloc_mem = gc.mem_alloc()
+            total_mem = free_mem + alloc_mem
+            print("🧠 Memory: %d free, %d used (%.1f%% full)" %
+                  (free_mem, alloc_mem, (alloc_mem * 100.0) / total_mem))
+
+            # Warning if memory gets low
+            if free_mem < 5000:  # Less than 5KB free
+                print("⚠️  LOW MEMORY WARNING!")
 
         # Execute the selected routine
         if current_routine_instance:
