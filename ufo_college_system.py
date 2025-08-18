@@ -1,5 +1,5 @@
 # Charles Doebler at Feral Cat AI
-# UFO College Spirit System
+# UFO College System - College spirit and chant detection
 
 import time
 import random
@@ -12,9 +12,9 @@ class UFOCollegeSystem:
         
         # College spirit state
         self.school_spirit = 50  # 0-100 scale
-        self.last_college_trigger = 0.0  # Ensure float type
+        self.last_college_trigger = 0.0  # Ensure a float type
         self.college_cooldown = 15.0  # Seconds between college celebrations
-        self._last_college_check = 0.0  # Ensure float type
+        self._last_college_check = 0.0  # Ensure a float type
         
         # Random college behavior timing (when chant detection is off)
         self.last_random_college_event = 0.0
@@ -26,12 +26,10 @@ class UFOCollegeSystem:
             self.college_primary = college_colors["primary"]
             self.college_secondary = college_colors["secondary"]
             self.fight_song_notes = self.college_manager.get_fight_song_notes()
-            # REMOVED: Duplicate college loading message
         else:
             self.college_primary = [255, 255, 255]
             self.college_secondary = [128, 128, 128]
             self.fight_song_notes = []
-            # No message needed when disabled
 
     def check_for_random_college_behavior(self, hardware, sound_enabled, chant_detection_enabled):
         """Trigger random college behaviors when chant detection is disabled but college spirit is enabled."""
@@ -86,7 +84,7 @@ class UFOCollegeSystem:
             print("[UFO AI] Random chant error: %s" % str(e))
 
     def detect_college_chant(self, np_samples):
-        """Detect college-specific chant patterns in audio - sound output not needed for detection."""
+        """Detect college-specific chant patterns in audio."""
         if not self.college_spirit_enabled or not self.college_manager.is_enabled():
             return False
         
@@ -104,7 +102,7 @@ class UFOCollegeSystem:
             if not chant_data or len(np_samples) < 100:
                 return False
             
-            # IMPROVED: Better error handling for missing fields
+            # Validate required chant data fields
             if "frequency_range" not in chant_data:
                 print("[UFO AI] Error: Missing frequency_range in %s chant data" % self.college_manager.get_college_name())
                 return False
@@ -121,9 +119,9 @@ class UFOCollegeSystem:
             
             min_freq, max_freq = target_freq_range
             
-            # Simple frequency analysis - count samples in range
-            sample_rate = 22050  # Approximate sample rate
-            samples_per_freq = len(np_samples) / (sample_rate / 2)  # Nyquist
+            # Simple frequency analysis
+            sample_rate = 22050
+            samples_per_freq = len(np_samples) / (sample_rate / 2)
             
             start_idx = int(min_freq * samples_per_freq)
             end_idx = int(max_freq * samples_per_freq)
@@ -133,7 +131,7 @@ class UFOCollegeSystem:
             if end_idx <= start_idx:
                 return False
             
-            # Calculate energy in target range
+            # Calculate energy in the target range
             target_energy = 0.0
             total_energy = 0.0
             
@@ -147,11 +145,11 @@ class UFOCollegeSystem:
             if total_energy == 0.0:
                 return False
             
-            # Check if target frequency has high enough proportion
+            # Check if the target frequency has a high enough proportion
             energy_ratio = target_energy / total_energy
             threshold = float(chant_data["energy_threshold"])
             
-            # Also check minimum volume threshold
+            # Also check the minimum volume threshold
             avg_amplitude = (total_energy / len(np_samples)) ** 0.5
             min_volume = float(chant_data.get("min_volume", 500))
             
@@ -209,26 +207,42 @@ class UFOCollegeSystem:
             print("[UFO AI] College response error: %s" % str(e))
 
     def _play_fight_song(self, hardware, sound_enabled):
-        """Play college fight song with proper note durations."""
+        """Play college fight song with proper note durations and tempo control."""
         if not sound_enabled or not self.fight_song_notes:
             return
         
         try:
-            print("[UFO AI] 🎵 Playing %s fight song!" % self.college_manager.get_college_name())
+            # Get tempo setting from college data (default to 100% if not specified)
+            tempo_percent = 100
+            if self.college_manager.college_data and 'fight_song' in self.college_manager.college_data:
+                tempo_percent = self.college_manager.college_data['fight_song'].get('tempo', 100)
+            
+            # Convert tempo percentage to multiplier
+            tempo_multiplier = tempo_percent / 100.0
+            
+            print("[UFO AI] 🎵 Playing %s fight song at %d%% tempo!" % 
+                  (self.college_manager.get_college_name(), tempo_percent))
             
             for note_data in self.fight_song_notes:  # Each note_data is [frequency, duration]
                 if sound_enabled:  # Check sound still enabled
                     if isinstance(note_data, list) and len(note_data) == 2:
                         # New format: [frequency, duration]
                         freq = int(float(note_data[0]))
-                        duration = float(note_data[1])
-                        hardware.play_tone_if_enabled(freq, duration, sound_enabled)
-                        time.sleep(0.02)  # Brief pause between notes
+                        base_duration = float(note_data[1])
+                        # Apply tempo adjustment
+                        adjusted_duration = base_duration / tempo_multiplier
+                        hardware.play_tone_if_enabled(freq, adjusted_duration, sound_enabled)
+                        # Adjust pause between notes based on tempo
+                        pause_duration = 0.02 / tempo_multiplier
+                        time.sleep(pause_duration)
                     else:
                         # Fallback for old format (single frequency)
                         freq = int(float(note_data))
-                        hardware.play_tone_if_enabled(freq, 0.25, sound_enabled)
-                        time.sleep(0.03)
+                        base_duration = 0.25
+                        adjusted_duration = base_duration / tempo_multiplier
+                        hardware.play_tone_if_enabled(freq, adjusted_duration, sound_enabled)
+                        pause_duration = 0.03 / tempo_multiplier
+                        time.sleep(pause_duration)
                     
         except Exception as e:
             print("[UFO AI] Fight song error: %s" % str(e))
@@ -243,7 +257,7 @@ class UFOCollegeSystem:
                 primary_color = tuple(self.college_primary)
                 secondary_color = tuple(self.college_secondary)
                 
-                # Expanding ring from center
+                # Expanding ring from the center
                 hardware.clear_pixels()
                 for ring in range(5):
                     start_pos = 5 - ring
@@ -305,7 +319,7 @@ class UFOCollegeSystem:
                 
                 hardware.clear_pixels()
                 
-                # Create alternating pattern
+                # Create an alternating pattern
                 for i in range(10):
                     if (i + stripe_cycle) % 2 == 0:
                         hardware.pixels[i] = primary_color

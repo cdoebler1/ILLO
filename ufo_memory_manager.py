@@ -119,7 +119,7 @@ class UFOMemoryManager:
                 memory_data['metadata']['total_runtime'] = current_runtime + runtime_delta
 
             with open(self.memory_file, 'w') as f:
-                json.dump(memory_data, f)
+                json.dump(memory_data, f, indent=4)
 
             self.last_memory_save = current_time
             return True

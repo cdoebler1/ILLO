@@ -10,9 +10,9 @@ class BaseRoutine:
         
     def get_color_function(self, mode):
         """Get color function based on mode, with validation."""
-        if mode > 3:
+        if mode > 4:
             mode = 1
-        color_functions = [ColorFunctions.wheel, ColorFunctions.pink, ColorFunctions.blue]
+        color_functions = [ColorFunctions.wheel, ColorFunctions.pink, ColorFunctions.blue, ColorFunctions.green]
         return color_functions[mode - 1]
     
     def run(self, mode, volume):
