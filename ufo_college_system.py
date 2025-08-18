@@ -209,19 +209,26 @@ class UFOCollegeSystem:
             print("[UFO AI] College response error: %s" % str(e))
 
     def _play_fight_song(self, hardware, sound_enabled):
-        """Play college fight song snippet - FIXED to handle single frequencies."""
+        """Play college fight song with proper note durations."""
         if not sound_enabled or not self.fight_song_notes:
             return
         
         try:
             print("[UFO AI] 🎵 Playing %s fight song!" % self.college_manager.get_college_name())
             
-            for note_freq in self.fight_song_notes:  # Play ALL notes, not just first 8
+            for note_data in self.fight_song_notes:  # Each note_data is [frequency, duration]
                 if sound_enabled:  # Check sound still enabled
-                    # FIXED: Handle single frequency values, not [freq, duration] arrays
-                    freq = int(float(note_freq))  # note_freq is now just a number
-                    hardware.play_tone_if_enabled(freq, 0.25, sound_enabled)  # Slightly shorter per note
-                    time.sleep(0.03)  # Shorter pause for better flow
+                    if isinstance(note_data, list) and len(note_data) == 2:
+                        # New format: [frequency, duration]
+                        freq = int(float(note_data[0]))
+                        duration = float(note_data[1])
+                        hardware.play_tone_if_enabled(freq, duration, sound_enabled)
+                        time.sleep(0.02)  # Brief pause between notes
+                    else:
+                        # Fallback for old format (single frequency)
+                        freq = int(float(note_data))
+                        hardware.play_tone_if_enabled(freq, 0.25, sound_enabled)
+                        time.sleep(0.03)
                     
         except Exception as e:
             print("[UFO AI] Fight song error: %s" % str(e))
