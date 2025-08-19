@@ -7,13 +7,22 @@
     },
     "chants": {
         "primary": {
-            "trigger_pattern": "WE ARE",
-            "response": "PENN STATE",
-            "detection_peaks": 2,
-            "gap_range": [1, 3],
+            "pattern": ["WE", "ARE", "PENN", "STATE"],
             "frequency_range": [200, 800],
-            "energy_threshold": 0.15,
-            "min_volume": 300
+            "energy_threshold": 0.3,
+            "min_volume": 500,
+            "notes": [
+                [330, 0.6], [0, 0.15], [392, 0.6], [0, 0.8],
+                [440, 0.4], [0, 0.15], [523, 0.8], [0, 0.4],
+
+                [330, 0.6], [0, 0.15], [392, 0.6], [0, 0.8],
+                [440, 0.4], [0, 0.15], [523, 0.8], [0, 0.4],
+
+                [330, 0.6], [0, 0.15], [392, 0.6], [0, 0.8],
+                [440, 0.4], [0, 0.15], [523, 0.8], [0, 0.6]
+            ],
+            "tempo": 120
+
         }
     },
     "fight_song": {

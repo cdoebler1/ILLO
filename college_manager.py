@@ -63,3 +63,17 @@ class CollegeManager:
         if not self.college_data:
             return "Generic"
         return self.college_data["name"]
+
+    def get_chant_notes(self):
+        """Get chant note sequence."""
+        if not self.college_data:
+            return []
+        
+        if "chants" not in self.college_data:
+            return []
+            
+        if "primary" not in self.college_data["chants"]:
+            return []
+        
+        chant_data = self.college_data["chants"]["primary"]
+        return chant_data.get("notes", [])

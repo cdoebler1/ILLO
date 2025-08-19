@@ -60,7 +60,7 @@ def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, colle
         }
 
         with open('config.json', 'w') as config_file:
-            json.dump(config_data, config_file, indent=4)
+            json.dump(config_data, config_file)
         print("⚙️ Configuration saved: Routine %d, Mode %d" % (routine, mode))
         return True
     except (OSError, RuntimeError) as e:
