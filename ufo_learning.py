@@ -111,7 +111,7 @@ class UFOLearningSystem:
         ai_core.curiosity_level = new_curiosity
         
         # Update college spirit based on activity
-        self.college_system.update_school_spirit()
+        # self.college_system.update_school_spirit()
         
         # Store interaction patterns
         if len(self.interaction_memory) > 50:

@@ -4,12 +4,14 @@
 import time
 import random
 from college_manager import CollegeManager
+from music_player import MusicPlayer
 
 
 class UFOCollegeSystem:
     def __init__(self, college_spirit_enabled=True, college="penn_state"):
         self.college_spirit_enabled = college_spirit_enabled
         self.college_manager = CollegeManager(college)
+        self.music_player = MusicPlayer()
 
         # College spirit state
         self.school_spirit = 50  # 0-100 scale
@@ -20,17 +22,16 @@ class UFOCollegeSystem:
         # Random college behavior timing (when chant detection is off)
         self.last_random_college_event = 0.0
         self.random_college_interval = 45.0  # Random college behavior every 45-90 seconds
+        self.last_random_behavior = None  # NEW: Track last behavior to avoid repeats
 
         # Get college-specific data
         if self.college_manager.is_enabled():
             college_colors = self.college_manager.get_colors()
             self.college_primary = college_colors["primary"]
             self.college_secondary = college_colors["secondary"]
-            self.fight_song_notes = self.college_manager.get_fight_song_notes()
         else:
             self.college_primary = [255, 255, 255]
             self.college_secondary = [128, 128, 128]
-            self.fight_song_notes = []
 
     def check_for_random_college_behavior(self, hardware, sound_enabled,
                                           chant_detection_enabled):
@@ -47,13 +48,20 @@ class UFOCollegeSystem:
         if time_since_last > random_interval:
             # Random college spirit boost
             college_behaviors = ['chant', 'fight_song', 'light_show', 'spirit_boost']
-            behavior = random.choice(college_behaviors)
+
+            # Remove the last behavior to prevent immediate repeats
+            if self.last_random_behavior in college_behaviors:
+                available_behaviors = [b for b in college_behaviors if
+                                       b != self.last_random_behavior]
+                behavior = random.choice(available_behaviors)
+            else:
+                behavior = random.choice(college_behaviors)
 
             print("[UFO AI] 🏈 Random %s spirit! (%s)" % (
                 self.college_manager.get_college_name(), behavior))
 
             if behavior == 'chant':
-                self._random_college_chant(hardware, sound_enabled)
+                self._play_chant(hardware, sound_enabled)
             elif behavior == 'fight_song':
                 self._play_fight_song(hardware, sound_enabled)
             elif behavior == 'light_show':
@@ -63,6 +71,8 @@ class UFOCollegeSystem:
                 print("[UFO AI] 📈 School spirit boosted to %d!" % self.school_spirit)
 
             self.last_random_college_event = current_time
+            self.last_random_behavior = behavior  # NEW: Remember this behavior
+
             return True
 
         return False
@@ -75,7 +85,8 @@ class UFOCollegeSystem:
         try:
             # Try to play the detailed chant first
             if self._play_chant(hardware, sound_enabled):
-                print("[UFO AI] 📣 Random detailed %s chant!" % self.college_manager.get_college_name())
+                print(
+                    "[UFO AI] 📣 Random detailed %s chant!" % self.college_manager.get_college_name())
                 return
 
             # Fallback to simple tone sequence if detailed chant isn't available
@@ -86,7 +97,8 @@ class UFOCollegeSystem:
                     hardware.play_tone_if_enabled(int(tone), 0.25, sound_enabled)
                     time.sleep(0.1)
 
-            print("[UFO AI] 📣 Random %s chant!" % self.college_manager.get_college_name())
+            print(
+                "[UFO AI] 📣 Random %s chant!" % self.college_manager.get_college_name())
 
         except Exception as e:
             print("[UFO AI] Random chant error: %s" % str(e))
@@ -191,83 +203,109 @@ class UFOCollegeSystem:
             "[UFO AI] 🎉 %s celebration mode!" % self.college_manager.get_college_name())
 
         # Celebration sequence
-        self._speak_college_response(hardware, sound_enabled)
+        self._play_chant(hardware, sound_enabled)
         self._college_light_show(hardware)
         self._play_fight_song(hardware, sound_enabled)
 
-    def _speak_college_response(self, hardware, sound_enabled):
-        """UFO responds to college chant with detailed chant playback or tones."""
-        if not sound_enabled or not self.college_manager.is_enabled():
-            return
+    def _play_chant(self, hardware, sound_enabled):
+        """Play college chant using unified music player."""
+        if not sound_enabled:
+            return False
 
-        # Try to play detailed chant notes first
-        if self._play_chant(hardware, sound_enabled):
-            return  # Chant played successfully
+        chant_notes = self.college_manager.get_chant_notes()
+        if not chant_notes:
+            return self._fallback_chant_tones(hardware, sound_enabled)
 
-        # Fallback to original tone sequence if no chant notes available
+        try:
+            # Get BPM from college data (default to 120 BPM if not specified)
+            bpm = 120  # Default fallback
+
+            print("[UFO AI] DEBUG: college_data exists: %s" % (
+                        self.college_manager.college_data is not None))
+
+            if self.college_manager.college_data:
+                print("[UFO AI] DEBUG: college_data keys: %s" % list(
+                    self.college_manager.college_data.keys()))
+
+                if 'chants' in self.college_manager.college_data:
+                    print("[UFO AI] DEBUG: chants data: %s" %
+                          self.college_manager.college_data['chants'])
+
+                    if 'primary' in self.college_manager.college_data['chants']:
+                        chant_primary = self.college_manager.college_data['chants'][
+                            'primary']
+                        print("[UFO AI] DEBUG: primary chant data: %s" % chant_primary)
+
+                        if 'bpm' in chant_primary:
+                            bpm = chant_primary['bpm']
+                            print("[UFO AI] DEBUG: Retrieved BPM: %d" % bpm)
+                        else:
+                            print("[UFO AI] DEBUG: No 'bpm' key in primary chant data")
+                    else:
+                        print("[UFO AI] DEBUG: No 'primary' key in chants")
+                else:
+                    print("[UFO AI] DEBUG: No 'chants' key in college_data")
+            else:
+                print("[UFO AI] DEBUG: college_data is None")
+
+            print("[UFO AI] Using chant BPM: %d" % bpm)
+
+            # Chants repeat 3 times
+            return self.music_player.play_music(hardware, sound_enabled, chant_notes,
+                                                bpm, 3, "chant")
+
+        except Exception as e:
+            print("[UFO AI] Chant playback error: %s" % str(e))
+            return self._fallback_chant_tones(hardware, sound_enabled)
+
+    def _play_fight_song(self, hardware, sound_enabled):
+        """Play college fight song using unified music player."""
+        if not sound_enabled:
+            return False
+
+        fight_song_notes = self.college_manager.get_fight_song_notes()
+        if not fight_song_notes:
+            return False
+
+        try:
+            # Get BPM from college data (default to 120 BPM if not specified)
+            bpm = 120
+            if self.college_manager.college_data and 'fight_song' in self.college_manager.college_data:
+                bpm = self.college_manager.college_data['fight_song'].get('bpm', 120)
+
+            # Fight songs play once
+            return self.music_player.play_music(hardware, sound_enabled,
+                                                fight_song_notes, bpm, 1, "fight_song")
+
+        except Exception as e:
+            print("[UFO AI] Fight song error: %s" % str(e))
+            return False
+
+    def _fallback_chant_tones(self, hardware, sound_enabled):
+        """Fallback chant using simple tone sequence when no chant notes available."""
         try:
             response_tone = self.college_manager.get_response_tone("chant_response")
             base_freq, duration = response_tone
 
-            # Enthusiastic rising tone sequence
-            for i in range(3):
-                freq = int(float(base_freq) + (i * 100))
-                hardware.play_tone_if_enabled(freq, float(duration) * 0.8,
-                                              sound_enabled)
-                time.sleep(0.1)
+            # Enthusiastic rising tone sequence - repeat 3 times
+            for rep in range(3):
+                for i in range(3):
+                    freq = int(float(base_freq) + (i * 100))
+                    hardware.play_tone_if_enabled(freq, float(duration) * 0.8,
+                                                  sound_enabled)
+                    time.sleep(0.1)
+                time.sleep(0.3)  # Pause between repetitions
 
             # Victory fanfare
             fanfare_tone = self.college_manager.get_response_tone("victory_fanfare")
             fanfare_freq, fanfare_duration = fanfare_tone
             hardware.play_tone_if_enabled(int(fanfare_freq), float(fanfare_duration),
                                           sound_enabled)
+            return True
 
         except Exception as e:
-            print("[UFO AI] College response error: %s" % str(e))
-
-    def _play_fight_song(self, hardware, sound_enabled):
-        """Play college fight song with proper note durations and tempo control."""
-        if not sound_enabled or not self.fight_song_notes:
-            return
-
-        try:
-            # Get tempo setting from college data (default to 100% if not specified)
-            tempo_percent = 100
-            if self.college_manager.college_data and 'fight_song' in self.college_manager.college_data:
-                tempo_percent = self.college_manager.college_data['fight_song'].get(
-                    'tempo', 100)
-
-            # Convert tempo percentage to multiplier
-            tempo_multiplier = tempo_percent / 100.0
-
-            print("[UFO AI] 🎵 Playing %s fight song at %d%% tempo!" %
-                  (self.college_manager.get_college_name(), tempo_percent))
-
-            for note_data in self.fight_song_notes:  # Each note_data is [frequency, duration]
-                if sound_enabled:  # Check sound still enabled
-                    if isinstance(note_data, list) and len(note_data) == 2:
-                        # New format: [frequency, duration]
-                        freq = int(float(note_data[0]))
-                        base_duration = float(note_data[1])
-                        # Apply tempo adjustment
-                        adjusted_duration = base_duration / tempo_multiplier
-                        hardware.play_tone_if_enabled(freq, adjusted_duration,
-                                                      sound_enabled)
-                        # Adjust pause between notes based on tempo
-                        pause_duration = 0.02 / tempo_multiplier
-                        time.sleep(pause_duration)
-                    else:
-                        # Fallback for old format (single frequency)
-                        freq = int(float(note_data))
-                        base_duration = 0.25
-                        adjusted_duration = base_duration / tempo_multiplier
-                        hardware.play_tone_if_enabled(freq, adjusted_duration,
-                                                      sound_enabled)
-                        pause_duration = 0.03 / tempo_multiplier
-                        time.sleep(pause_duration)
-
-        except Exception as e:
-            print("[UFO AI] Fight song error: %s" % str(e))
+            print("[UFO AI] Fallback chant error: %s" % str(e))
+            return False
 
     def _college_light_show(self, hardware):
         """Display college colors in celebration pattern."""
@@ -425,83 +463,3 @@ class UFOCollegeSystem:
         """Check if enough time has passed for another college celebration."""
         current_time = time.monotonic()
         return (current_time - self.last_college_trigger) >= self.college_cooldown
-
-    def _play_chant(self, hardware, sound_enabled):
-        """Play college chant with proper note durations and rest support."""
-        if not sound_enabled:
-            return False
-
-        chant_notes = self.college_manager.get_chant_notes()
-        if not chant_notes:
-            return False
-
-        try:
-            # Get tempo setting from college data (default to 100% if not specified)
-            tempo_percent = 100
-            if self.college_manager.college_data and 'chants' in self.college_manager.college_data:
-                if 'primary' in self.college_manager.college_data['chants']:
-                    tempo_percent = self.college_manager.college_data['chants'][
-                        'primary'].get('tempo', 100)
-
-            # Convert tempo percentage to multiplier
-            tempo_multiplier = tempo_percent / 100.0
-
-            print("[UFO AI] 🎵 Playing %s chant at %d%% tempo!" %
-                  (self.college_manager.get_college_name(), tempo_percent))
-            print("[UFO AI] Debug: Total chant notes to play: %d" % len(chant_notes))
-
-            note_count = 0
-            for note_data in chant_notes:
-                if not sound_enabled:  # Check if sound was turned off during playback
-                    print(
-                        "[UFO AI] Debug: Sound disabled during chant at note %d" % note_count)
-                    break
-
-                note_count += 1
-                if isinstance(note_data, list) and len(note_data) == 2:
-                    # Format: [frequency, duration] - frequency of 0 means rest/pause
-                    freq = int(float(note_data[0]))
-                    base_duration = float(note_data[1])
-                    # Apply tempo adjustment
-                    adjusted_duration = base_duration / tempo_multiplier
-
-                    if freq > 0:  # Play tone
-                        print(
-                            "[UFO AI] Debug: Playing note %d: %dHz for %.2fs" % (
-                                note_count,
-                                freq,
-                                adjusted_duration))
-                        hardware.play_tone_if_enabled(freq, adjusted_duration,
-                                                      sound_enabled)
-                    else:  # Rest/pause - just wait
-                        print("[UFO AI] Debug: Rest %d: %.2fs pause" % (note_count,
-                                                                        adjusted_duration))
-                        time.sleep(adjusted_duration)
-
-                    # Small pause between notes (adjusted for tempo)
-                    pause_duration = 0.02 / tempo_multiplier
-                    time.sleep(pause_duration)
-                else:
-                    # Fallback for old format (single frequency)
-                    freq = int(float(note_data))
-                    base_duration = 0.25
-                    adjusted_duration = base_duration / tempo_multiplier
-                    print(
-                        "[UFO AI] Debug: Playing old format note %d: %dHz for %.2fs" % (
-                            note_count, freq, adjusted_duration))
-                    if freq > 0:
-                        hardware.play_tone_if_enabled(freq, adjusted_duration,
-                                                      sound_enabled)
-                    else:
-                        time.sleep(adjusted_duration)
-                    pause_duration = 0.03 / tempo_multiplier
-                    time.sleep(pause_duration)
-
-            print(
-                "[UFO AI] Debug: Chant complete - played %d of %d notes" % (note_count,
-                                                                            len(chant_notes)))
-            return True
-
-        except Exception as e:
-            print("[UFO AI] Chant playback error: %s" % str(e))
-            return False
