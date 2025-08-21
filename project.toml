@@ -1,38 +1,50 @@
-# Moon Colony ILLO Project Metadata
-# CircuitPython Project Configuration
-
 [project]
 name = "illo"
-version = "1.0.1"
+version = "2.1.0"
 description = "AI-Powered UFO Controller for Adafruit Circuit Playground Bluefruit"
-authors = ["Charles Doebler <charles@feralcatai.com>"]
-license = "MIT"
+authors = [
+    {name = "Charles Doebler", email = "charles@feralcatai.com"}
+]
+license = {text = "MIT"}
 readme = "README.md"
-homepage = "https://github.com/cdoebler1/ILLO"
-repository = "https://github.com/cdoebler1/ILLO"
-documentation = "https://github.com/cdoebler1/ILLO/blob/main/README.md"
-keywords = ["circuitpython", "ai", "iot", "led", "bluetooth", "adafruit"]
+keywords = [
+    "circuitpython", 
+    "ai", 
+    "iot", 
+    "led", 
+    "bluetooth", 
+    "adafruit",
+    "music",
+    "interactive",
+    "college",
+    "embedded"
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "Intended Audience :: Education", 
+    "Intended Audience :: Education",
+    "Intended Audience :: End Users/Desktop",
     "Topic :: System :: Hardware",
     "Topic :: Artistic Software",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+    "Topic :: Games/Entertainment",
+    "Topic :: Home Automation",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: Implementation :: CircuitPython",
+    "Programming Language :: Python :: Implementation :: MicroPython"
 ]
+requires-python = ">=3.7"
 
 [project.urls]
+homepage = "https://github.com/cdoebler1/ILLO"
+repository = "https://github.com/cdoebler1/ILLO"
+documentation = "https://github.com/cdoebler1/ILLO/blob/main/README.md"
 "Bug Reports" = "https://github.com/cdoebler1/ILLO/issues"
 "Source" = "https://github.com/cdoebler1/ILLO"
-"Documentation" = "https://github.com/cdoebler1/ILLO/blob/main/README.md"
 
-
-[tool.circuitpython]
 # CircuitPython specific configuration
+[tool.circuitpython]
 target_board = "circuitplayground_bluefruit"
-frozen_modules = []
 main_file = "code.py"
 required_libraries = [
     "adafruit_circuitplayground",
@@ -42,10 +54,12 @@ required_libraries = [
     "simpleio"
 ]
 
-[project.device]
-# Hardware requirements and specifications
+# Hardware specifications
+[hardware]
 board = "Adafruit Circuit Playground Bluefruit"
 circuitpython_version = ">=7.0.0"
+flash_memory = "2MB"
+ram_memory = "256KB"
 features = [
     "bluetooth",
     "neopixels", 
@@ -55,23 +69,38 @@ features = [
     "switch"
 ]
 
-[project.device.memory_requirements]
-flash = "2MB"
-ram = "256KB"
-
-[project.routines]
-# Available lighting routines
-default = "ufo_intelligence"
-available = [
+# Operating modes configuration
+[modes]
+default_mode = "ufo_intelligence"
+available_modes = [
     "ufo_intelligence",
-    "intergalactic_cruising",
+    "intergalactic_cruising", 
     "meditate",
     "dance_party"
 ]
 
-[project.ai]
-# AI system configuration
+# AI system settings
+[ai_system]
 learning_enabled = true
 memory_persistence = true
 personality_development = true
 interaction_tracking = true
+college_integration = true
+
+# Music system configuration
+[music_system]
+chant_detection = true
+fight_song_recognition = true
+beat_synchronization = true
+college_colors = true
+tempo_matching = true
+
+# Development tools
+[tool.black]
+line-length = 100
+target-version = ['py37']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

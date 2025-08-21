@@ -1,59 +1,102 @@
-UFO Configuration Settings
-==========================
+ILLO Configuration Settings
+===========================
 
 config.json field descriptions:
 
-name (string): Bluetooth device name for the UFO
+name (string): Device identifier for Bluetooth and logging
   - Used for BLE advertising and device identification
-  - Example: "UFO" (default), "Illo", etc.
-  - Useful when running multiple UFOs for identification
+  - Default: "UFO" 
+  - Useful when running multiple ILLO devices for identification
 
-routine (integer 1-4): Default routine selection
-  1 = UFOIntelligence (AI behavior; default)
-  2 = IntergalacticCruising (audio-reactive lights)
-  3 = Meditate (breathing patterns)
-  4 = DanceParty (standalone beat detection; BLE sync disabled for memory safety)
+college_spirit_enabled (boolean): Enable college team integration
+  true = Activates fight song recognition and team color displays (default)
+  false = Disables college-specific features
+  
+college (string): Selected college/team for spirit features
+  - Default: "penn_state"
+  - Available teams stored in colleges/ directory
+  - Used for fight song recognition and team color schemes
 
-mode (integer 1-3): Default color theme
-  1 = Rainbow wheel colors
-  2 = Pink variations  
-  3 = Blue variations
+college_chant_detection_enabled (boolean): Enable real-time chant detection
+  true = Listens for crowd chants and responds with team colors
+  false = Disables active chant listening (default for memory conservation)
+  Note: Uses significant processing power when enabled
+
+routine (integer 1-4): Default operating mode selection
+  1 = AI Intelligence (adaptive AI behaviors; default)
+  2 = Intergalactic Cruising (ambient sci-fi lighting)  
+  3 = Meditate (calming breathing patterns)
+  4 = Dance Party (music-reactive light shows)
+
+mode (integer 1-4): Default color theme selection
+  1 = Rainbow spectrum colors (default)
+  2 = Pink color variations
+  3 = Blue color variations  
+  4 = College team colors (when college_spirit_enabled = true)
 
 volume (integer 0-1): Default sound setting
-  0 = Silent (lights only)
-  1 = Sound enabled (lights + tones)
-  Note: Overridden by physical switch position on Circuit Playground board
+  0 = Silent mode (lights only; default)
+  1 = Sound enabled (lights + audio tones)
+  Note: Physical slide switch overrides this setting during operation
+
+ufo_persistent_memory (boolean): Enable AI memory persistence between power cycles
+  true = Saves AI personality, preferences, and learning to storage (default)
+  false = Resets AI memory on each power cycle
+  Note: Affects flash memory write cycles; AI still learns during active sessions
 
 debug_bluetooth (boolean): Enable/disable Bluetooth debug logging
   true = Show BLE connection, scanning, and sync details in console
   false = Hide Bluetooth debug messages (default)
-  Note: Dance Party runs standalone regardless of this setting
+  Note: Bluetooth sync currently disabled for memory optimization
 
-debug_audio (boolean): Enable/disable audio processing debug logging  
-  true = Show beat detection energy levels and thresholds in console
-  false = Hide audio analysis debug messages (default)
-
-ufo_persistent_memory (boolean): Enable AI long-term memory between power cycles
-  true = Default (saves AI personality/preferences to ufo_memory.json between sessions)
-  false = Resets AI memory on power cycle
-  Note: Only affects UFO Intelligence routine; increases flash write cycles
+debug_audio (boolean): Enable/disable audio processing debug logging
+  true = Show beat detection, music analysis, and audio energy levels
+  false = Hide audio processing debug messages (default)
 
 Hardware Controls:
-- Button A: Cycle through routines (1-4)
-- Button B: Cycle through color modes (1-3)  
-- Switch: Controls volume (On=1, Off=0) - overrides config setting
-- Tap detection: Interact with AI and trigger responses
-- Shake detection: Turbulence effects and energy boosts
+- Button A: Cycle through operating modes (1-4)
+- Button B: Cycle through color themes (1-4)
+- Slide Switch: Sound on/off control + boot-time storage configuration
+- Touch/Tap: Interact with AI system and trigger responses  
+- Shake: Generate turbulence effects and energy boosts
 
-Physical UFO Integration:
-- Circuit Playground Bluefruit embedded in levitating UFO toy
-- Battery-powered for untethered operation
-- LED ring creates UFO lighting effects during levitation
-- Microphone responds to ambient sound and music
-- Motion sensors detect when UFO is disturbed or interacted with
+Boot-Time Switch Behavior:
+- Switch LEFT + USB: Sound on, testing mode (read/write storage via USB)
+- Switch RIGHT + USB: Sound off, development mode (read-only via USB) 
+- Switch LEFT (no USB): Sound on, standalone operation
+- Switch RIGHT (no USB): Sound off, standalone operation
 
-Memory Usage Notes:
-- Dance Party disables Bluetooth sync to prevent memory errors on 256KB RAM
-- Persistent memory disabled by default to reduce flash wear on embedded system
-- AI learning occurs in RAM during an active session regardless of persistence setting
-- Memory optimization critical for stable levitation operation
+Music System Features:
+- Automatic tempo detection and BPM synchronization
+- College fight song and chant recognition
+- Real-time beat-synchronized lighting effects
+- Support for 16th note precision timing
+- Team color displays during collegiate music
+
+AI System Features:
+- Persistent personality development over time
+- Environmental response and adaptation
+- Interactive learning from user behaviors
+- Memory management with configurable persistence
+- Autonomous attention-seeking behaviors
+
+Memory Management:
+- Optimized for CircuitPython's 256KB RAM limitation
+- Automatic garbage collection during operation
+- Configurable memory persistence to reduce flash wear
+- Safe fallback modes when memory limits are reached
+- Memory-efficient data structures throughout system
+
+College Integration:
+- Expandable team database in colleges/ directory
+- Automatic fight song detection and response
+- Team-specific color schemes and patterns
+- Crowd chant pattern recognition (when enabled)
+- Customizable team preferences and loyalty tracking
+
+Performance Notes:
+- AI learning occurs in RAM during active sessions
+- Persistent memory saves occur at safe intervals
+- Audio processing optimized for real-time performance
+- Light synchronization maintains smooth 60fps target
+- Bluetooth features disabled by default for memory conservation
