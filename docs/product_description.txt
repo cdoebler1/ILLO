@@ -1,6 +1,6 @@
-# 🛸 **ILLO - AI-Powered Levitating UFO** 🧠
+# 🛸 **ILLO - Identified Little Levitating Object** 🧠
 
-## **Advanced CircuitPython Intelligence for Levitating UFO Toys**
+## **AI-Powered UFO Companion That Reacts, Learns, and Evolves With You**
 
 Experience the future of interactive entertainment - a real levitating UFO enhanced with cutting-edge artificial intelligence! The ILLO project transforms ordinary levitating UFO toys into intelligent companions through advanced CircuitPython programming on the embedded Adafruit Circuit Playground Bluefruit.
 

@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="503c1c38-9d5d-4407-a832-f201980b7b0c" name="Changes" comment="Complete refactoring into smaller files.">
+      <change beforePath="$PROJECT_DIR$/colleges/penn_state.json" beforeDir="false" afterPath="$PROJECT_DIR$/colleges/penn_state.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ufo_college_system.py" beforeDir="false" afterPath="$PROJECT_DIR$/ufo_college_system.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$/.." value="PennState" />
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;cdoebler1&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/cdoebler1/ILLO.git&quot;,
+    &quot;accountId&quot;: &quot;8119551e-5e54-41ac-8cdc-5bcabbabc5a4&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;cdoebler1&quot;,
+    &quot;repository&quot;: &quot;ILLO&quot;
+  }
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="2hLRwVXeRQtIJtrpfxo7FeUH9JO" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;Refactor&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/c_doe/OneDrive/Documents/GitHub/ILLO&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.sourceCode.Python&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\c_doe\OneDrive\Documents\GitHub\Moon-Colony\ILLO\feralcat_illo_circuitpython\prototype3\venv" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\c_doe\OneDrive\Documents\GitHub\ILLO\archive" />
+      <recent name="C:\Users\c_doe\OneDrive\Documents\GitHub\ILLO" />
+      <recent name="C:\Users\cdoebler\OneDrive\Documents\GitHub\ILLO\archive" />
+      <recent name="C:\Users\cdoebler\OneDrive\Documents\GitHub\ILLO" />
+      <recent name="C:\Users\cdoebler\OneDrive\Documents\GitHub\ILLO\colleges" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-e03c56caf84a-JavaScript-PY-252.23892.515" />
+        <option value="bundled-python-sdk-7e47963ff851-f0eec537fc84-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.23892.515" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="503c1c38-9d5d-4407-a832-f201980b7b0c" name="Changes" comment="" />
+      <created>1717371610401</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1717371610401</updated>
+      <workItem from="1717371611489" duration="159000" />
+      <workItem from="1722472948725" duration="60000" />
+      <workItem from="1754848235954" duration="364000" />
+      <workItem from="1754848621309" duration="186000" />
+      <workItem from="1754848826496" duration="584000" />
+      <workItem from="1754849434599" duration="1496000" />
+      <workItem from="1754850961745" duration="1091000" />
+      <workItem from="1754852179490" duration="2438000" />
+      <workItem from="1754854662368" duration="12413000" />
+      <workItem from="1754869437131" duration="1346000" />
+      <workItem from="1754871170144" duration="3216000" />
+      <workItem from="1754941026173" duration="2400000" />
+      <workItem from="1754948998399" duration="8546000" />
+      <workItem from="1754958926058" duration="1553000" />
+      <workItem from="1754960829230" duration="477000" />
+      <workItem from="1754961311968" duration="585000" />
+      <workItem from="1755009425704" duration="2534000" />
+      <workItem from="1755012547715" duration="3103000" />
+      <workItem from="1755023699589" duration="6344000" />
+      <workItem from="1755030107910" duration="166000" />
+      <workItem from="1755042207453" duration="6779000" />
+      <workItem from="1755049478264" duration="911000" />
+      <workItem from="1755108507900" duration="281000" />
+      <workItem from="1755108830333" duration="6424000" />
+      <workItem from="1755127240785" duration="8097000" />
+      <workItem from="1755188140541" duration="7528000" />
+      <workItem from="1755219025300" duration="641000" />
+      <workItem from="1755219696343" duration="405000" />
+      <workItem from="1755220331524" duration="2887000" />
+      <workItem from="1755382249434" duration="8606000" />
+      <workItem from="1755434802337" duration="1115000" />
+      <workItem from="1755450019528" duration="10186000" />
+      <workItem from="1755461088086" duration="10427000" />
+      <workItem from="1755473961309" duration="7524000" />
+    </task>
+    <task id="LOCAL-00001" summary="Refactored entire codeset">
+      <option name="closed" value="true" />
+      <created>1754938361575</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1754938361575</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Refactored entire codeset">
+      <option name="closed" value="true" />
+      <created>1754938459654</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1754938459654</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Refactored entire codeset">
+      <option name="closed" value="true" />
+      <created>1754938502548</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1754938502548</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Added supporting documentation">
+      <option name="closed" value="true" />
+      <created>1754943314005</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1754943314005</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Added supporting documentation">
+      <option name="closed" value="true" />
+      <created>1754958168018</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1754958168018</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Added LICENSE">
+      <option name="closed" value="true" />
+      <created>1755010094714</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1755010094714</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Refactored project and updated supporting documents.">
+      <option name="closed" value="true" />
+      <created>1755015190192</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1755015190192</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Added Penn State fan behavior">
+      <option name="closed" value="true" />
+      <created>1755030253727</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1755030253727</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Stable code with new boot.py">
+      <option name="closed" value="true" />
+      <created>1755109320110</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1755109320110</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Revamped the college spirit routine.">
+      <option name="closed" value="true" />
+      <created>1755189485444</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1755189485444</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Update documentation">
+      <option name="closed" value="true" />
+      <created>1755197976931</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1755197976931</updated>
+    </task>
+    <task id="LOCAL-00012" summary="removing lib directory">
+      <option name="closed" value="true" />
+      <created>1755434989552</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1755434989552</updated>
+    </task>
+    <task id="LOCAL-00013" summary="bug fix update">
+      <option name="closed" value="true" />
+      <created>1755456528241</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1755456528241</updated>
+    </task>
+    <task id="LOCAL-00014" summary="First attempt">
+      <option name="closed" value="true" />
+      <created>1755460684518</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1755460684518</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Complete refactoring into smaller files.">
+      <option name="closed" value="true" />
+      <created>1755482026299</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1755482026299</updated>
+    </task>
+    <option name="localTasksCounter" value="16" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$PROJECT_DIR$/../../.." />
+      <path value="$PROJECT_DIR$/.." />
+    </ignored-roots>
+    <MESSAGE value="Refactored entire codeset" />
+    <MESSAGE value="Added supporting documentation" />
+    <MESSAGE value="Added LICENSE" />
+    <MESSAGE value="Refactored project and updated supporting documents." />
+    <MESSAGE value="Added Penn State fan behavior" />
+    <MESSAGE value="Stable code with new boot.py" />
+    <MESSAGE value="Revamped the college spirit routine." />
+    <MESSAGE value="Update documentation" />
+    <MESSAGE value="removing lib directory" />
+    <MESSAGE value="bug fix update" />
+    <MESSAGE value="First attempt" />
+    <MESSAGE value="Complete refactoring into smaller files." />
+    <option name="LAST_COMMIT_MESSAGE" value="Complete refactoring into smaller files." />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/archive/ufo_intelligence.py</url>
+          <line>598</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

@@ -3,7 +3,6 @@
 
 from base_routine import BaseRoutine
 import time
-from adafruit_circuitplayground import cp  # Missing - needed for cp.play_tone()
 
 class Meditate(BaseRoutine):
     def __init__(self):
@@ -47,7 +46,7 @@ class Meditate(BaseRoutine):
             
             # Play gentle inhale tone only once at the beginning
             if volume == 1 and not self.inhale_sound_played and cycle_position < 0.02:
-                cp.play_tone(220, 1.0)  # 1 second gentle tone for inhale
+                self.hardware.play_tone_if_enabled(220, 1.0, volume)  # 1 second gentle tone for inhale
                 self.inhale_sound_played = True
                 
         elif cycle_position < 0.6:  # Hold phase (2.4 seconds)
@@ -64,7 +63,7 @@ class Meditate(BaseRoutine):
             
             # Play gentle exhale tone only once at the beginning
             if volume == 1 and not self.exhale_sound_played and exhale_progress < 0.02:
-                cp.play_tone(180, 1.2)  # 1.2 second lower tone for exhale
+                self.hardware.play_tone_if_enabled(180, 1.2, volume)  # 1.2 second lower tone for exhale
                 self.exhale_sound_played = True
         
         # Reset sound flags when transitioning between phases
@@ -76,7 +75,7 @@ class Meditate(BaseRoutine):
             elif current_phase == "hold":
                 # Optional: Add a subtle tone for the hold phase
                 if volume == 1:
-                    cp.play_tone(200, 0.2)  # Brief, gentle hold tone
+                    self.hardware.play_tone_if_enabled(200, 0.2, volume)  # Brief, gentle hold tone
             
             self.last_phase = current_phase
     

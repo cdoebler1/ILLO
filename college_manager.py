@@ -1,3 +1,5 @@
+# Charles Doebler at Feral Cat AI
+
 import json
 
 class CollegeManager:
@@ -13,11 +15,11 @@ class CollegeManager:
             return
             
         try:
-            with open(f'colleges/{self.college_name}.json', 'r') as f:
+            file_path = 'colleges/{}.json'.format(self.college_name)
+            with open(file_path, 'r') as f:
                 self.college_data = json.load(f)
-            print(f"[COLLEGE] 🏈 Loaded {self.college_data['name']} spirit data")
         except (OSError, ValueError) as e:
-            print(f"[COLLEGE] ❌ Could not load college data: {e}")
+            print("[COLLEGE] ❌ Could not load college data: {}".format(str(e)))
             self.college_data = None
     
     def is_enabled(self):
@@ -34,7 +36,15 @@ class CollegeManager:
         """Get chant detection parameters."""
         if not self.college_data:
             return None
-        return self.college_data["chants"]["primary"]
+        
+        if "chants" not in self.college_data:
+            return None
+            
+        if "primary" not in self.college_data["chants"]:
+            return None
+            
+        chant_data = self.college_data["chants"]["primary"]
+        return chant_data
     
     def get_fight_song_notes(self):
         """Get fight song note sequence."""
@@ -53,3 +63,17 @@ class CollegeManager:
         if not self.college_data:
             return "Generic"
         return self.college_data["name"]
+
+    def get_chant_notes(self):
+        """Get chant note sequence."""
+        if not self.college_data:
+            return []
+        
+        if "chants" not in self.college_data:
+            return []
+            
+        if "primary" not in self.college_data["chants"]:
+            return []
+        
+        chant_data = self.college_data["chants"]["primary"]
+        return chant_data.get("notes", [])

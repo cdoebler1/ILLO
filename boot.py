@@ -1,32 +1,37 @@
-# Smart boot: auto R/W for persistence, safe R/O for USB & A-button override
 import board
 import digitalio
 import storage
 import supervisor
+import time
 
-# Read BUTTON A (pull-up; pressed == False)
-btn_a = digitalio.DigitalInOut(board.BUTTON_A)
-btn_a.switch_to_input(pull=digitalio.Pull.UP)
-a_pressed = (btn_a.value is False)
+time.sleep(0.2)
 
-# Detect USB connection (MSC/CDC)
-usb_connected = getattr(supervisor.runtime, "usb_connected", False) or \
-                getattr(supervisor.runtime, "serial_connected", False)
+# Use the slide switch instead of buttons (more reliable)
+switch = digitalio.DigitalInOut(board.SLIDE_SWITCH)
+switch.switch_to_input(pull=digitalio.Pull.UP)
 
-# Policy:
-# - If USB connected -> READ-ONLY (allow host file copy)
-# - Else if A held -> READ-ONLY (manual override)
-# - Else -> READ-WRITE (enable on-device persistence)
-allow_local_write = (not usb_connected) and (not a_pressed)
+switch_readings = []
+for i in range(5):
+    switch_readings.append(switch.value)
+    time.sleep(0.05)
 
-# Apply mount
-# storage.remount(path, readonly)
-storage.remount("/", not allow_local_write)
+# Switch in "ON" position (True) = enable write mode
+switch_on = sum(switch_readings) >= 3
 
-# Helpful breadcrumbs end up in boot_out.txt on CIRCUITPY
-if usb_connected:
-    print("boot.py: USB detected -> mounting READ-ONLY for safe host file transfer")
-elif a_pressed:
-    print("boot.py: A-button override -> mounting READ-ONLY")
+# USB detection
+try:
+    usb_connected = supervisor.runtime.usb_connected or supervisor.runtime.serial_connected
+except:
+    usb_connected = False
+
+if not usb_connected:
+    storage.remount("/", readonly=False)
+    print("boot.py: Standalone - READ-WRITE")
+elif usb_connected and switch_on:
+    storage.remount("/", readonly=False)
+    print("boot.py: USB + Switch ON - READ-WRITE (testing mode)")
 else:
-    print("boot.py: No USB & no override -> mounting READ-WRITE (persistence enabled)")
+    storage.remount("/", readonly=True)
+    print("boot.py: USB + Switch OFF - READ-ONLY")
+
+print("boot.py: USB:", usb_connected, "Switch readings:", switch_readings, "Final:", switch_on)
