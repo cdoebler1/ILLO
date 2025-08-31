@@ -25,9 +25,9 @@ class UFOLearningSystem:
             if len(self.audio_history) > 20:
                 self.audio_history.pop(0)
             
-            # College chant detection - ONLY if explicitly enabled
+            # College chant detection - ONLY if college spirit AND chant detection both enabled
             if (self.college_system.college_spirit_enabled and 
-                chant_detection_enabled and  # New separate control
+                chant_detection_enabled and
                 self.college_system.is_college_celebration_ready()):
                 
                 try:

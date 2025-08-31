@@ -9,6 +9,7 @@ from ufo_ai_core import UFOAICore
 from ufo_ai_behaviors import UFOAIBehaviors
 from ufo_learning import UFOLearningSystem
 import time
+import json
 
 class UFOIntelligence(BaseRoutine):
     def __init__(self, device_name=None, debug_bluetooth=False, debug_audio=False,
@@ -23,11 +24,17 @@ class UFOIntelligence(BaseRoutine):
         
         # Load chant detection setting from config
         try:
-            import json
             with open('config.json', 'r') as f:
                 config = json.load(f)
                 self.chant_detection_enabled = config.get('college_chant_detection_enabled', False)
-        except:
+        except ImportError as e:
+            print("[UFO AI] JSON import error: %s" % str(e))
+            self.chant_detection_enabled = False  # Default to disabled for safety
+        except (FileNotFoundError, OSError) as e:
+            print("[UFO AI] Config file error: %s" % str(e))
+            self.chant_detection_enabled = False  # Default to disabled for safety
+        except (ValueError, KeyError) as e:
+            print("[UFO AI] Config parsing error: %s" % str(e))
             self.chant_detection_enabled = False  # Default to disabled for safety
         
         # Initialize subsystems
@@ -73,11 +80,11 @@ class UFOIntelligence(BaseRoutine):
                     self.learning.environment_baseline
                 )
 
-            # Execute current behavior (college-aware)
+            # Execute current behavior (college-aware) - pass audio processor to avoid double recording
             self.behaviors.execute_behavior(
                 self.ai_core.mood, color_func, sound_enabled, current_time,
                 self.ai_core.curiosity_level, self.ai_core.energy_level,
-                self.learning.audio_history
+                self.audio  # Pass audio processor to avoid double recording
             )
 
             # Update learning systems - always active regardless of sound output

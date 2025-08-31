@@ -1,7 +1,7 @@
 # 🛸 ILLO - Identified Little Levitating Object
 
 Meet ILLO, your AI-powered UFO companion that reacts to your world and evolves with you.
-ILLO listens, learns, and lights the space around it with mesmerizing animations that sync to music,
+ILLO listens, learns, and lights the surrounding space with mesmerizing animations that sync to music,
 respond to touch, and adapt to your environment.
 
 ## 🌟 Key Features
@@ -85,10 +85,10 @@ The slide switch controls storage mode during boot:
 - **Operation: Switch left**: Sound on, read/write from local
 
 ## 🎮 Controls
-- **Button A**: Cycle through operating modes (1-4)
-- **Button B**: Cycle through color themes (1-4)
+- **Button A**: Cycle through operating modes (1–4)
+- **Button B**: Cycle through color themes (1–4)
 - **Slide Switch**: Sound on/off. Boot-time storage configuration
-- **Touch/Tap**: Interact with AI system and trigger responses
+- **Touch/Tap**: Interact with the AI system and trigger responses
 - **Shake**: Generate turbulence effects and energy responses
 
 ## 📁 Project Structure

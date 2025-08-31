@@ -13,10 +13,16 @@ class UFOAIBehaviors:
         self.audio_reactive_mode = False
         self.last_audio_update = 0
         self.last_attention_update = 0
+        self._shared_audio_processor = None  # Initialize shared audio processor
+        self._audio_processor = None  # Initialize fallback audio processor
 
     def execute_behavior(self, mood, color_func, volume, current_time, 
-                        curiosity_level, energy_level, audio_history):
+                        curiosity_level, energy_level, audio_processor=None):
         """Execute the UFO's current behavioral state with college awareness."""
+        # Store audio processor for reuse to prevent memory leaks
+        if audio_processor:
+            self._shared_audio_processor = audio_processor
+            
         # Let college system modify mood if appropriate
         mood = self.college_system.get_college_behavior_modifier(mood)
         
@@ -28,7 +34,7 @@ class UFOAIBehaviors:
             else:
                 self._excited_behavior(color_func, volume, current_time, energy_level)
         elif mood == "curious":
-            self._attention_seeking_visualizer(color_func, volume, current_time, audio_history, curiosity_level)
+            self._attention_seeking_visualizer(color_func, volume, current_time, curiosity_level)
         elif mood == "calm":
             self._subtle_college_pride(color_func, current_time)
         else:  # neutral
@@ -156,21 +162,27 @@ class UFOAIBehaviors:
             
             self.hardware.pixels.show()
 
-    def _attention_seeking_visualizer(self, color_func, volume, current_time, audio_history, curiosity_level):
+    def _attention_seeking_visualizer(self, color_func, volume, current_time, curiosity_level):
         """Enhanced audio visualizer for attention-seeking behavior."""
+        print("[UFO AI] 🎵 Audio visualizer mode active (Routine 1)")
+        
         try:
-            # Get fresh audio samples for real-time visualization
-            from audio_processor import AudioProcessor
-            if not hasattr(self, '_audio_processor'):
-                self._audio_processor = AudioProcessor()
+            # Use shared audio processor if available, otherwise create one
+            if self._shared_audio_processor:
+                audio_processor = self._shared_audio_processor
+            else:
+                from audio_processor import AudioProcessor
+                if not self._audio_processor:
+                    self._audio_processor = AudioProcessor()
+                audio_processor = self._audio_processor
             
             # Record fresh samples for visualization
-            np_samples = self._audio_processor.record_samples()
+            np_samples = audio_processor.record_samples()
             
             if len(np_samples) > 50:
                 # Process audio like Intergalactic Cruising
-                deltas = self._audio_processor.compute_deltas(np_samples)
-                freq = self._audio_processor.calculate_frequency(deltas)
+                deltas = audio_processor.compute_deltas(np_samples)
+                freq = audio_processor.calculate_frequency(deltas)
                 
                 if freq is not None and len(deltas) > 0:
                     # Audio-reactive visualization with attention-seeking enhancements
