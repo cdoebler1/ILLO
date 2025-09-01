@@ -7,15 +7,15 @@
 # Microphone input creates reactive light patterns
 # Accelerometer shake detection for "turbulence" effects
 
-import time
-import json
-import gc
 from adafruit_circuitplayground import cp
 from intergalactic_cruising import IntergalacticCruising
-from physical_actions import PhysicalActions
 from dance_party import DanceParty
 from meditate import Meditate
 from ufo_intelligence import UFOIntelligence
+import time
+from config_manager import ConfigManager
+from memory_manager import MemoryManager
+from interaction_manager import InteractionManager
 import os
 
 
@@ -28,43 +28,6 @@ def _fs_writable_check():
         os.remove(test_path)
         return True
     except OSError:
-        return False
-
-
-def load_config():
-    """Load configuration from the config.json file."""
-    with open('config.json') as config_file:
-        data = json.load(config_file)
-    return (data['routine'], data['mode'], data['volume'], data['name'],
-            data.get('debug_bluetooth', False), data.get('debug_audio', False),
-            data.get('college_spirit_enabled', True), data.get('college', 'none'),
-            data.get('ufo_persistent_memory', False),
-            data.get('college_chant_detection_enabled', True))  # NEW
-
-
-def save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college,
-                ufo_persistent_memory, college_chant_detection_enabled=True):
-    """Save current configuration to config.json file."""
-    try:
-        config_data = {
-            'routine': routine,
-            'mode': mode,
-            'volume': volume,
-            'name': name,
-            'debug_bluetooth': debug_bluetooth,
-            'debug_audio': debug_audio,
-            'college_spirit_enabled': college_spirit_enabled,
-            'college': college,
-            'ufo_persistent_memory': ufo_persistent_memory,
-            'college_chant_detection_enabled': college_chant_detection_enabled
-        }
-
-        with open('config.json', 'w') as config_file:
-            json.dump(config_data, config_file)
-        print("⚙️ Configuration saved: Routine %d, Mode %d" % (routine, mode))
-        return True
-    except (OSError, RuntimeError) as e:
-        print("❌ Failed to save config: %s" % str(e))
         return False
 
 
@@ -114,145 +77,219 @@ def show_mode_feedback(mode):
     print("🎨 Mode %d: %s" % (mode, info["name"]))
 
 
+# Button A cycles through routines (1-4)
+# Button B cycles through color modes (1-4) 
+# Switch position controls volume (True/False)
+# NeoPixel ring represents UFO lighting effects
+# Microphone input creates reactive light patterns
+# Accelerometer shake detection for "turbulence" effects
+
+# Debug Configuration - Set these flags to enable debug output
+debug_bluetooth = False  # Enable Bluetooth debug messages
+debug_audio = False  # Enable audio processing debug messages
+debug_memory = True  # Enable memory usage monitoring
+debug_interactions = False  # Enable interaction debug messages
+
+
 def main():
     """Main application loop."""
-    # Load all configuration parameters from config.json
-    routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college, ufo_persistent_memory, college_chant_detection_enabled = load_config()
+    # Initialize managers
+    config_mgr = ConfigManager()
+    config = config_mgr.load_config()
+    memory_mgr = MemoryManager(enable_debug=debug_memory)
+    interaction_mgr = InteractionManager(enable_debug=debug_interactions)
 
-    # Determine if we can safely persist this session
+    # Extract configuration values
+    routine = config['routine']
+    mode = config['mode']
+    name = config['name']
+    college_spirit_enabled = config['college_spirit_enabled']
+    college = config['college']
+    ufo_persistent_memory = config['ufo_persistent_memory']
+    college_chant_detection_enabled = config['college_chant_detection_enabled']
+
+    # System initialization
     _fs_is_writable = _fs_writable_check()
     _persist_this_run = bool(ufo_persistent_memory and _fs_is_writable)
 
-    # Lazy loading variables for routine management
+    # State variables
     current_routine_instance = None
-    active_routine_number = 0  # Forces creation on the first loop
-
-    # Button debouncing variables
+    active_routine_number = 0
     last_button_a_time = 0
     last_button_b_time = 0
-    button_debounce_delay = 0.3  # 300ms debounce delay
-    
-    # Configuration save management
+    button_debounce_delay = 0.3
     config_save_timer = 0
     config_changed = False
 
     # Display startup status
-    actual_volume = cp.switch  # Read the actual switch position
+    actual_volume = cp.switch
     print("🛸 UFO System Initialized")
-    print("📋 Current: Routine %d, Mode %d, Sound %s" % (routine, mode, "ON" if actual_volume else "OFF"))
+    print("📋 Current: Routine %d, Mode %d, Sound %s" % (routine, mode,
+                                                        "ON" if actual_volume else "OFF"))
 
-    # Show persistent memory status based on filesystem writability
+    # Show persistent memory status
     if ufo_persistent_memory and not _fs_is_writable:
         print("💾 Persistent memory REQUESTED but DISABLED (USB write-protect detected)")
     elif _persist_this_run:
-        print("💾 Persistent memory ENABLED — Illo will remember personality across sessions")
+        print(
+            "💾 Persistent memory ENABLED — Illo will remember personality across sessions")
     else:
         print("💾 Persistent memory DISABLED — Illo resets personality each session")
 
-    # Enable tap detection for physical interactions
     cp.detect_taps = 1
 
+    # Main loop
     while True:
         current_time = time.monotonic()
-
-        # Update volume based on current switch position
         volume = cp.switch
 
-        # Lazy instantiation - create routine instance only when needed
+        # Routine management - lazy instantiation
         if routine != active_routine_number:
-            # Clean up previous instance to free memory
             if current_routine_instance:
+                memory_mgr.cleanup_before_routine_change()
                 del current_routine_instance
-                current_routine_instance = None
-                gc.collect()
 
-            # Create new routine instance based on current selection
-            if routine == 1:
-                current_routine_instance = UFOIntelligence(
-                    device_name=name,
-                    persistent_memory=_persist_this_run,
-                    college_spirit_enabled=college_spirit_enabled,
-                    college=college
-                )
-            elif routine == 2:
-                current_routine_instance = IntergalacticCruising()
-                # current_routine_instance.enable_debug()  # REMOVED - no more routine debug
-            elif routine == 3:
-                current_routine_instance = Meditate()
-            elif routine == 4:
-                current_routine_instance = DanceParty(name, debug_bluetooth, debug_audio)
+            interaction_mgr.setup_for_routine(routine)
+            current_routine_instance = create_routine_instance(
+                routine, name, _persist_this_run, college_spirit_enabled, 
+                college, debug_bluetooth, debug_audio
+            )
+            
+            if current_routine_instance:
+                active_routine_number = routine
+                print(" Loaded routine %d" % routine)
+            else:
+                print(" Failed to load routine %d" % routine)
 
-            active_routine_number = routine
-            print("🔄 Loaded routine %d" % routine)
+        # Interaction detection
+        interactions = interaction_mgr.check_interactions(routine, volume, cp.pixels)
+        handle_ufo_intelligence_learning(routine, current_routine_instance,
+                                         interactions)
 
-        # Handle physical interactions with UFO Intelligence learning
-        if cp.tapped:
-            PhysicalActions.tapped(volume)
-            PhysicalActions.tapped(volume)
-            # UFO Intelligence routine learns from all physical interactions
-            if routine == 1 and current_routine_instance:
-                current_routine_instance.last_interaction = time.monotonic()
-                if current_routine_instance.mood == "curious":
-                    current_routine_instance.record_successful_attention()
+        # Button handling
+        routine, mode, last_button_a_time, last_button_b_time, button_config_changed = handle_button_interactions(
+            routine, mode, last_button_a_time, last_button_b_time,
+            button_debounce_delay, current_time
+        )
 
-        if cp.shake(shake_threshold=11):
-            PhysicalActions.shaken(volume)
-            # UFO Intelligence responds to shake as energizing interaction
-            if routine == 1 and current_routine_instance:
-                current_routine_instance.last_interaction = time.monotonic()
-                current_routine_instance.energy_level = min(100, current_routine_instance.energy_level + 15)
-                if current_routine_instance.mood == "curious":
-                    current_routine_instance.record_successful_attention()
-
-        # Handle button A: cycle through routines with debouncing
-        if cp.button_a and (current_time - last_button_a_time > button_debounce_delay):
-            routine = (routine % 4) + 1  # Cycle through routines 1-4
-            show_routine_feedback(routine)
-            last_button_a_time = current_time
+        if button_config_changed:
             config_changed = True
             config_save_timer = current_time
 
-            # Brief delay to show feedback, then clear
-            time.sleep(0.8)
-            cp.pixels.fill((0, 0, 0))
-            cp.pixels.show()
-
-        # Handle button B: cycle through color modes with debouncing
-        if cp.button_b and (current_time - last_button_b_time > button_debounce_delay):
-            mode = (mode % 4) + 1  # Cycle through modes 1-4
-            show_mode_feedback(mode)
-            last_button_b_time = current_time
-            config_changed = True
-            config_save_timer = current_time
-
-            # Brief delay to show feedback, then clear
-            time.sleep(0.8)
-            cp.pixels.fill((0, 0, 0))
-            cp.pixels.show()
-
-        # Delayed configuration saving to avoid excessive file I/O
+        # Configuration saving
         if config_changed and (current_time - config_save_timer > 2.0):
-            save_config(routine, mode, volume, name, debug_bluetooth, debug_audio, college_spirit_enabled, college,
-                        ufo_persistent_memory)
+            config.update({
+                'routine': routine,
+                'mode': mode,
+                'name': name,
+                'college_spirit_enabled': college_spirit_enabled,
+                'college': college,
+                'ufo_persistent_memory': ufo_persistent_memory,
+                'college_chant_detection_enabled': college_chant_detection_enabled
+            })
+            config_mgr.save_config(config)
             config_changed = False
 
-        # Periodic memory monitoring and garbage collection
-        if int(current_time) % 10 == 0 and int(current_time * 10) % 10 == 0:
-            gc.collect()
-            free_mem = gc.mem_free()
-            alloc_mem = gc.mem_alloc()
-            total_mem = free_mem + alloc_mem
-            print("🧠 Memory: %d free, %d used (%.1f%% full)" %
-                  (free_mem, alloc_mem, (alloc_mem * 100.0) / total_mem))
+        # System maintenance
+        memory_mgr.periodic_cleanup()
 
-            # Warning if memory gets critically low
-            free_mem = gc.mem_free()
-            if free_mem < 5000:  # Less than 5KB free
-                print("⚠️  LOW MEMORY WARNING!")
-
-        # Execute the selected routine
+        # Execute routine
         if current_routine_instance:
             current_routine_instance.run(mode, volume)
+
+
+def create_routine_instance(routine, name, _persist_this_run, college_spirit_enabled,
+                            college, bt_debug, audio_debug):
+    """
+    Create a routine instance based on routine number.
+    
+    Args:
+        routine: Routine number (1-4)
+        name: Device name
+        _persist_this_run: Whether to enable persistent memory
+        college_spirit_enabled: Whether college spirit is enabled
+        college: College name
+        bt_debug: Bluetooth debug flag
+        audio_debug: Audio debug flag
+    
+    Returns:
+        routine instance or None
+    """
+    if routine == 1:
+        return UFOIntelligence(
+            device_name=name,
+            persistent_memory=_persist_this_run,
+            college_spirit_enabled=college_spirit_enabled,
+            college=college
+        )
+    elif routine == 2:
+        return IntergalacticCruising()
+    elif routine == 3:
+        return Meditate()
+    elif routine == 4:
+        return DanceParty(name, bt_debug, audio_debug)
+    else:
+        return None
+
+
+def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_time,
+                               button_debounce_delay, current_time):
+    """
+    Handle button A and B interactions with debouncing.
+    
+    Returns:
+        tuple: (new_routine, new_mode, new_last_button_a_time, new_last_button_b_time, config_changed)
+    """
+    config_changed = False
+
+    # Handle button A: cycle through routines with debouncing
+    if cp.button_a and (current_time - last_button_a_time > button_debounce_delay):
+        routine = (routine % 4) + 1  # Cycle through routines 1-4
+        show_routine_feedback(routine)
+        last_button_a_time = current_time
+        config_changed = True
+
+        # Brief delay to show feedback, then clear
+        time.sleep(0.8)
+        cp.pixels.fill((0, 0, 0))
+        cp.pixels.show()
+
+    # Handle button B: cycle through color modes with debouncing
+    if cp.button_b and (current_time - last_button_b_time > button_debounce_delay):
+        mode = (mode % 4) + 1  # Cycle through modes 1-4
+        show_mode_feedback(mode)
+        last_button_b_time = current_time
+        config_changed = True
+
+        # Brief delay to show feedback, then clear
+        time.sleep(0.8)
+        cp.pixels.fill((0, 0, 0))
+        cp.pixels.show()
+
+    return routine, mode, last_button_a_time, last_button_b_time, config_changed
+
+
+def handle_ufo_intelligence_learning(routine, current_routine_instance, interactions):
+    """
+    Handle UFO Intelligence learning from interactions.
+    
+    Args:
+        routine: Current routine number
+        current_routine_instance: The active routine instance
+        interactions: Dictionary of detected interactions
+    """
+    if routine != 1 or not current_routine_instance:
+        return
+
+    # Pass interactions to UFO Intelligence for learning
+    if interactions['tap'] or interactions['shake']:
+        current_routine_instance.last_interaction = time.monotonic()
+        if current_routine_instance.mood == "curious":
+            current_routine_instance.record_successful_attention()
+
+    if interactions['shake']:
+        current_routine_instance.energy_level = min(100,
+                                                    current_routine_instance.energy_level + 15)
 
 
 if __name__ == "__main__":
