@@ -176,6 +176,7 @@ def main():
                 )
             elif routine == 2:
                 current_routine_instance = IntergalacticCruising()
+                # current_routine_instance.enable_debug()  # REMOVED - no more routine debug
             elif routine == 3:
                 current_routine_instance = Meditate()
             elif routine == 4:
@@ -186,6 +187,7 @@ def main():
 
         # Handle physical interactions with UFO Intelligence learning
         if cp.tapped:
+            PhysicalActions.tapped(volume)
             PhysicalActions.tapped(volume)
             # UFO Intelligence routine learns from all physical interactions
             if routine == 1 and current_routine_instance:
@@ -244,6 +246,7 @@ def main():
                   (free_mem, alloc_mem, (alloc_mem * 100.0) / total_mem))
 
             # Warning if memory gets critically low
+            free_mem = gc.mem_free()
             if free_mem < 5000:  # Less than 5KB free
                 print("⚠️  LOW MEMORY WARNING!")
 

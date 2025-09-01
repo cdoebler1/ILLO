@@ -35,6 +35,19 @@ class IntergalacticCruising(BaseRoutine):
     
     def _update_visualization(self, deltas, color_func, volume):
         """Enhanced visualization with rotation and persistence effects."""
+        # Update brightness based on ambient light first
+        self.hardware.update_brightness_for_ambient_light()
+        
+        # Check for light-based interactions first (works in all modes)
+        light_interaction, light_change, current_light = self.hardware.check_light_interaction()
+        if light_interaction:
+            if self.debug:
+                print("[CRUISER] Light interaction detected! Change: %.1f, Current: %.1f" % 
+                      (light_change, current_light))
+            # Respond to light interaction with a brief flash
+            self._light_interaction_response(color_func)
+            return
+        
         freq = self.audio.calculate_frequency(deltas)
         
         if self.debug:
@@ -101,6 +114,11 @@ class IntergalacticCruising(BaseRoutine):
         """Gentle rotating animation when no audio detected."""
         current_time = time.monotonic()
         
+        # Update brightness for idle mode too
+        self.hardware.update_brightness_for_ambient_light()
+        
+        # Note: Light interaction check moved to _update_visualization for all modes
+        
         if self.debug:
             print("[CRUISER] Idle animation - time since last: %.3f" % (current_time - self.last_update))
         
@@ -139,6 +157,33 @@ class IntergalacticCruising(BaseRoutine):
                 print("[CRUISER] Idle animation - waiting (%.3fs remaining)" % 
                       (0.15 - (current_time - self.last_update)))
     
+    def _light_interaction_response(self, color_func):
+        """Special response pattern when light interaction is detected."""
+        # Triple flash sequence
+        for flash_cycle in range(3):
+            # Bright flash
+            for i in range(10):
+                self.hardware.pixels[i] = color_func(255)
+            self.hardware.pixels.show()
+            time.sleep(0.15)
+            
+            # Brief dark
+            self.hardware.clear_pixels()
+            self.hardware.pixels.show() 
+            time.sleep(0.1)
+        
+        # Sustained glow and slow fade
+        for fade_step in range(10):
+            brightness = 255 - (fade_step * 25)
+            if brightness > 0:
+                for i in range(10):
+                    self.hardware.pixels[i] = color_func(brightness)
+                self.hardware.pixels.show()
+                time.sleep(0.1)
+        
+        self.hardware.clear_pixels()
+        self.hardware.pixels.show()
+
     def enable_debug(self):
         """Enable debug output for this routine."""
         self.debug = True

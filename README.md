@@ -2,7 +2,7 @@
 
 Meet ILLO, your AI-powered UFO companion that reacts to your world and evolves with you.
 ILLO listens, learns, and lights the surrounding space with mesmerizing animations that sync to music,
-respond to touch, and adapt to your environment.
+respond to touch, and adapt to your environment. **Proudly 3D printed with recycled PETG and Made in USA.**
 
 ## 🌟 Key Features
 
@@ -11,8 +11,11 @@ respond to touch, and adapt to your environment.
 - **🏫 College Spirit**: Recognizes fight songs and chants with team color displays
 - **💾 Persistent Memory**: Remembers personality, moods, and preferences across power cycles
 - **🎨 Dynamic Lighting**: 10 RGB NeoPixels with synchronized light shows
-- **🤝 Interactive**: Responds to touch, shake, environmental sounds, and user interactions
+- **🌙 Smart Light Sensing**: Automatic brightness adjustment for ambient conditions and night light mode
+- **👋 Interactive Response**: Responds to touch, shake, environmental sounds, light changes, and user interactions
 - **📱 Bluetooth Ready**: Libraries included for future sync capabilities (currently standalone)
+- **♻️ Sustainable**: 3D printed with recycled PETG plastic - environmentally responsible design
+- **🇺🇸 Made in USA**: Designed, programmed, and manufactured domestically
 
 ## 🚀 Operating Modes
 
@@ -24,10 +27,11 @@ respond to touch, and adapt to your environment.
 - Attention-seeking and mood-based responses
 
 ### 2. Intergalactic Cruising 🌌
-- Smooth ambient lighting patterns
-- Low-energy color transitions
-- Sci-fi inspired visual effects
-- Perfect for background ambiance
+- Smooth ambient lighting patterns with automatic brightness adjustment
+- Light-based interaction detection for user presence awareness
+- Low-energy color transitions perfect for night light mode
+- Sci-fi inspired visual effects that respond to environmental light changes
+- Perfect for background ambiance that dims in dark rooms
 
 ### 3. Meditate 🧘
 - Calming breathing-pattern animations
@@ -40,6 +44,19 @@ respond to touch, and adapt to your environment.
 - Dynamic light shows that pulse with the beat
 - Music-reactive color patterns
 - Party-energy visual displays
+
+## 🌙 Smart Environmental Features
+
+**Automatic Brightness Control:**
+- Dims LEDs automatically in darker rooms for comfortable ambiance
+- Conserves battery power based on ambient light conditions
+- Perfect night light mode in Intergalactic Cruising with sound off
+
+**Light-Based Interaction Detection:**
+- Detects sudden changes in ambient light (shadows, hand waves, approaching)
+- Triggers special response patterns when light interactions are detected
+- Provides non-contact interaction method for enhanced user experience
+- Adds environmental awareness beyond traditional touch/shake detection
 
 ## 🎵 Music System
 
@@ -61,6 +78,7 @@ ILLO features a sophisticated music player that handles:
   - Built-in accelerometer & microphone
   - 2x tactile buttons + slide switch
   - Bluetooth radio (BLE)
+- **Enclosure**: 3D printed from recycled PETG (Made in USA)
 
 ## 📦 Installation
 
@@ -90,5 +108,6 @@ The slide switch controls storage mode during boot:
 - **Slide Switch**: Sound on/off. Boot-time storage configuration
 - **Touch/Tap**: Interact with the AI system and trigger responses
 - **Shake**: Generate turbulence effects and energy responses
+- **Light Changes**: Wave hand over or approach ILLO to trigger interaction responses
 
 ## 📁 Project Structure
