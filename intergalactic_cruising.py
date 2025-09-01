@@ -18,40 +18,80 @@ class IntergalacticCruising(BaseRoutine):
         self.debug = False
         self.debug_counter = 0  # Counter for periodic debug messages
         self._last_bt_mode = None  # Track last Bluetooth mode for change detection
+        
+        # Bluetooth initialization state tracking
+        self._bluetooth_init_attempted = False
+        self._bluetooth_init_success = False
+        self.bluetooth = None  # Initialize bluetooth attribute
+        self.bluetooth_enabled = False  # Initialize bluetooth_enabled here too
 
-        # Read configuration for Bluetooth setup
+        # Read configuration for Bluetooth setup with better error handling
+        device_name, bluetooth_config_enabled = self._load_configuration()
+        
+        # Initialize Bluetooth with robust error recovery
+        self._initialize_bluetooth(device_name, bluetooth_config_enabled)
+
+        print("[CRUISER] Intergalactic Cruising initialized - Audio visualization")
+        print("[CRUISER] Device name: %s" % device_name)
+    def _load_configuration(self):
+        """Load configuration with proper error handling."""
         try:
             from config_manager import ConfigManager
             config_mgr = ConfigManager()
             config = config_mgr.load_config()
             device_name = config.get('name', 'UFO_CRUISER')
             bluetooth_config_enabled = config.get('bluetooth_enabled', True)
+            return device_name, bluetooth_config_enabled
         except Exception as e:
             print("[CRUISER] Config read error: %s, using defaults" % str(e))
-            device_name = 'UFO_CRUISER'
-            bluetooth_config_enabled = True
+            return 'UFO_CRUISER', True
+
+    def _initialize_bluetooth(self, device_name, bluetooth_config_enabled):
+        """Initialize Bluetooth with robust error handling and recovery."""
+        self._bluetooth_init_attempted = True
         
-        # Only initialize Bluetooth if enabled in config
-        if bluetooth_config_enabled:
-            # NEW: Bluetooth controller for Bluefruit Connect app
-            self.bluetooth = BluefruitController(debug=False)  # Debug disabled by default
-            
-            # Set the device name after initialization
-            if hasattr(self.bluetooth, 'ble') and self.bluetooth.ble:
-                self.bluetooth.ble.name = device_name
-                if hasattr(self.bluetooth, 'advertisement'):
-                    self.bluetooth.advertisement.complete_name = device_name
-                    print("[CRUISER] Set Bluetooth name to: %s" % device_name)
-            
-            print("[CRUISER] Bluetooth available (enabled in config)")
-        else:
+        if not bluetooth_config_enabled:
             self.bluetooth = None
             print("[CRUISER] Bluetooth disabled in config - improved performance mode")
-        
-        self.bluetooth_enabled = False
+            return
 
-        print("[CRUISER] Intergalactic Cruising initialized - Audio visualization")
-        print("[CRUISER] Device name: %s" % device_name)
+        try:
+            from bluetooth_controller import BluefruitController
+            
+            # Initialize Bluetooth controller with debug disabled by default
+            self.bluetooth = BluefruitController(debug=False)
+            
+            # Validate Bluetooth initialization
+            if not self.bluetooth or not hasattr(self.bluetooth, 'ble') or not self.bluetooth.ble:
+                print("[CRUISER] ⚠️ Bluetooth initialization incomplete")
+                self.bluetooth = None
+                return
+            
+            # Set device name after successful initialization
+            try:
+                self.bluetooth.ble.name = device_name
+                if hasattr(self.bluetooth, 'advertisement') and self.bluetooth.advertisement:
+                    self.bluetooth.advertisement.complete_name = device_name
+                    print("[CRUISER] Set Bluetooth name to: %s" % device_name)
+            except Exception as name_error:
+                print("[CRUISER] ⚠️ Could not set device name: %s" % str(name_error))
+            
+            self._bluetooth_init_success = True
+            print("[CRUISER] Bluetooth available (enabled in config)")
+            
+        except ImportError:
+            print("[CRUISER] ⚠️ Bluetooth controller not available (import failed)")
+            self.bluetooth = None
+        except Exception as e:
+            print("[CRUISER] ❌ Bluetooth initialization failed: %s" % str(e))
+            self.bluetooth = None
+
+    def is_bluetooth_available(self):
+        """Check if Bluetooth is available and properly initialized."""
+        return (self._bluetooth_init_success and 
+                self.bluetooth is not None and 
+                hasattr(self.bluetooth, 'ble') and 
+                self.bluetooth.ble is not None)
 
     def run(self, mode, volume):
         """Run the intergalactic cruising routine with optional Bluetooth control."""
@@ -61,63 +101,72 @@ class IntergalacticCruising(BaseRoutine):
         # Increment debug counter
         self.debug_counter += 1
         
-        # Manage Bluetooth advertising lifecycle (only if Bluetooth is available)
-        if self.bluetooth_enabled and self.bluetooth:
-            # Add detailed UART service debugging
-            if self.debug_counter % 50 == 0:  # Every ~2.5 seconds
-                bt_status = "Disconnected"
-                uart_status = "No UART"
-                
-                if self.bluetooth.ble and self.bluetooth.ble.connected:
-                    bt_status = "Connected (%d)" % len(self.bluetooth.ble.connections)
-                    
-                if self.bluetooth.connection and self.bluetooth.uart_service:
-                    try:
-                        # Test if UART service is actually working
-                        in_waiting = self.bluetooth.uart_service.in_waiting
-                        uart_status = "UART OK (waiting: %d)" % in_waiting
-                    except Exception as e:
-                        uart_status = "UART Error: %s" % str(e)
-                
-                if self.debug:
-                    print("[CRUISER] BT: %s, UART: %s" % (bt_status, uart_status))
-            
-            # Debug: Show connection status periodically (every 100 cycles ≈ 5 seconds)
-            if self.debug and self.debug_counter % 100 == 0:
-                status = self.bluetooth.get_connection_status() if hasattr(self.bluetooth, 'get_connection_status') else "Unknown"
-                print("[CRUISER] Bluetooth status: %s" % status)
-            
-            # Check for disconnections and manage advertising
-            old_connected = self.bluetooth.is_connected()
-            self.bluetooth.manage_advertising()
-            self.bluetooth.check_connection()
-            new_connected = self.bluetooth.is_connected()
-            
-            # Only show connection changes, not every check
-            if old_connected != new_connected:
-                if self.debug:
-                    print("[CRUISER] Connection changed: %s -> %s" % (old_connected, new_connected))
-            
-            # Handle disconnection
-            if old_connected and not new_connected:
-                self.bluetooth.handle_disconnection()
-            
-            # Process commands if connected
-            if new_connected:
-                self.bluetooth.process_commands()
+        # Manage Bluetooth if available and enabled
+        if self.bluetooth_enabled and self.is_bluetooth_available():
+            try:
+                self._manage_bluetooth_interaction()
                 
                 # Check for mode override from Bluetooth
                 bt_mode = self.bluetooth.get_mode_override()
                 if bt_mode is not None:
                     effective_mode = bt_mode
                     # Only show mode override when it changes
-                    if self.debug and hasattr(self, '_last_bt_mode') and self._last_bt_mode != bt_mode:
-                        print("[CRUISER] Bluetooth mode override changed: %d" % effective_mode)
-                    self._last_bt_mode = bt_mode
-        elif self.bluetooth_enabled and not self.bluetooth:
-            print("[CRUISER] Bluetooth requested but not available")
-            self.bluetooth_enabled = False
+                    if self._last_bt_mode != bt_mode:
+                        if self.debug:
+                            print("[CRUISER] Bluetooth mode override changed: %d" % effective_mode)
+                        self._last_bt_mode = bt_mode
+                        
+            except Exception as bt_error:
+                if self.debug:
+                    print("[CRUISER] Bluetooth management error: %s" % str(bt_error))
+                # Don't disable Bluetooth entirely, just skip this cycle
+                
+        elif self.bluetooth_enabled and not self.is_bluetooth_available():
+            if self.debug and self.debug_counter % 1000 == 0:  # Very infrequent warning
+                print("[CRUISER] Bluetooth requested but not available")
 
+        # Core audio visualization processing
+        self._process_audio_visualization(effective_mode, volume)
+
+    def _manage_bluetooth_interaction(self):
+        """Centralized Bluetooth interaction management."""
+        # Periodic status reporting
+        if self.debug and self.debug_counter % 50 == 0:  # Every ~2.5 seconds
+            bt_status = "Disconnected"
+            uart_status = "No UART"
+            
+            if self.bluetooth.ble and self.bluetooth.ble.connected:
+                bt_status = "Connected (%d)" % len(self.bluetooth.ble.connections)
+                
+            if self.bluetooth.connection and self.bluetooth.uart_service:
+                try:
+                    in_waiting = self.bluetooth.uart_service.in_waiting
+                    uart_status = "UART OK (waiting: %d)" % in_waiting
+                except Exception as e:
+                    uart_status = "UART Error: %s" % str(e)
+            
+            print("[CRUISER] BT: %s, UART: %s" % (bt_status, uart_status))
+        
+        # Connection management
+        old_connected = self.bluetooth.is_connected()
+        self.bluetooth.manage_advertising()
+        self.bluetooth.check_connection()
+        new_connected = self.bluetooth.is_connected()
+        
+        # Handle connection state changes
+        if old_connected != new_connected:
+            if self.debug:
+                print("[CRUISER] Connection changed: %s -> %s" % (old_connected, new_connected))
+            
+            if old_connected and not new_connected:
+                self.bluetooth.handle_disconnection()
+        
+        # Process commands if connected
+        if new_connected:
+            self.bluetooth.process_commands()
+
+    def _process_audio_visualization(self, effective_mode, volume):
+        """Centralized audio processing and visualization."""
         # Use inherited method for color function selection
         color_func = self.get_color_function(effective_mode)
 
@@ -254,28 +303,53 @@ class IntergalacticCruising(BaseRoutine):
             print("[CRUISER] Frame complete - rotation offset: %.2f" % self.rotation_offset)
 
     def enable_bluetooth(self):
-        """Enable Bluetooth functionality."""
+        """Enable Bluetooth functionality with better error handling."""
+        if not self.is_bluetooth_available():
+            print("[CRUISER] ❌ Cannot enable Bluetooth - not properly initialized")
+            return False
+            
         self.bluetooth_enabled = True
         if self.debug:
             print("[CRUISER] Bluetooth enabled")
         
-        # Force start advertising when enabled
-        if self.bluetooth.start_advertising():
-            print("[CRUISER] 📱 Started advertising - look for device in Bluefruit Connect")
-        else:
-            print("[CRUISER] ❌ Failed to start advertising")
+        try:
+            # Force start advertising when enabled
+            if self.bluetooth.start_advertising():
+                print("[CRUISER] 📱 Started advertising - look for device in Bluefruit Connect")
+                return True
+            else:
+                print("[CRUISER] ⚠️ Failed to start advertising")
+                return False
+        except Exception as e:
+            print("[CRUISER] ❌ Error starting advertising: %s" % str(e))
+            return False
+
+    def disable_bluetooth(self):
+        """Disable Bluetooth functionality."""
+        self.bluetooth_enabled = False
+        
+        if self.is_bluetooth_available():
+            try:
+                if hasattr(self.bluetooth, 'ble') and self.bluetooth.ble.advertising:
+                    self.bluetooth.ble.stop_advertising()
+                    print("[CRUISER] Bluetooth advertising stopped")
+            except Exception as e:
+                if self.debug:
+                    print("[CRUISER] Error stopping Bluetooth: %s" % str(e))
+        
+        print("[CRUISER] Bluetooth disabled")
 
     def enable_debug(self):
         """Enable debug output for this routine and Bluetooth."""
         self.debug = True
-        if self.bluetooth:
+        if self.is_bluetooth_available():
             self.bluetooth.enable_debug()
         print("[CRUISER] Debug mode enabled")
 
     def disable_debug(self):
         """Disable debug output for this routine and Bluetooth."""
         self.debug = False
-        if self.bluetooth:
+        if self.is_bluetooth_available():
             self.bluetooth.disable_debug()
         print("[CRUISER] Debug mode disabled")
 
@@ -363,6 +437,86 @@ class IntergalacticCruising(BaseRoutine):
             print("[CRUISER] Advertising: %s, Device name: '%s'" % (is_advertising, device_name))
             return is_advertising
         return False
+
+    def cleanup(self):
+        """Clean up Intergalactic Cruising resources."""
+        try:
+            print("[CRUISER] 🧹 Cleaning up Intergalactic Cruising...")
+            
+            # Clean up Bluetooth resources if available
+            if self.bluetooth:
+                try:
+                    if hasattr(self.bluetooth, 'cleanup'):
+                        self.bluetooth.cleanup()
+                    else:
+                        # Fallback cleanup
+                        if hasattr(self.bluetooth, 'ble') and self.bluetooth.ble:
+                            if self.bluetooth.ble.advertising:
+                                self.bluetooth.ble.stop_advertising()
+                        if hasattr(self.bluetooth, 'connection') and self.bluetooth.connection:
+                            if hasattr(self.bluetooth.connection, 'disconnect'):
+                                self.bluetooth.connection.disconnect()
+                except Exception as bt_cleanup_error:
+                    print("[CRUISER] Bluetooth cleanup error: %s" % str(bt_cleanup_error))
+            
+            # Clear references
+            self.bluetooth = None
+            self.audio = None
+            
+            print("[CRUISER] ✅ Intergalactic Cruising cleanup completed")
+            
+        except Exception as e:
+            print("[CRUISER] ❌ Cleanup error: %s" % str(e))
+
+    def get_status(self):
+        """Get detailed status information for debugging."""
+        status = {
+            'bluetooth_init_attempted': self._bluetooth_init_attempted,
+            'bluetooth_init_success': self._bluetooth_init_success,
+            'bluetooth_available': self.is_bluetooth_available(),
+            'bluetooth_enabled': self.bluetooth_enabled,
+            'debug_enabled': self.debug,
+            'debug_counter': self.debug_counter
+        }
+        
+        if self.is_bluetooth_available():
+            try:
+                bt_info = self.bluetooth.get_connection_info()
+                status.update({
+                    'bluetooth_connected': bt_info.get('connected', False),
+                    'bluetooth_advertising': bt_info.get('advertising', False),
+                    'connection_count': bt_info.get('connection_count', 0)
+                })
+            except (OSError, RuntimeError, AttributeError, KeyError) as e:
+                if self.debug:
+                    print("[CRUISER] Error getting Bluetooth info: %s" % str(e))
+                status['bluetooth_status'] = 'error_getting_info'
+
+        return status
+
+    def recover_from_bluetooth_error(self):
+        """Attempt to recover from Bluetooth errors."""
+        if not self._bluetooth_init_attempted:
+            return False
+            
+        try:
+            print("[CRUISER] 🔄 Attempting Bluetooth recovery...")
+            
+            # Try to reinitialize if the original attempt was successful
+            if self._bluetooth_init_success:
+                device_name, bluetooth_config_enabled = self._load_configuration()
+                self._initialize_bluetooth(device_name, bluetooth_config_enabled)
+                
+                if self.is_bluetooth_available():
+                    print("[CRUISER] ✅ Bluetooth recovery successful")
+                    return True
+                    
+            print("[CRUISER] ❌ Bluetooth recovery failed")
+            return False
+            
+        except Exception as e:
+            print("[CRUISER] ❌ Bluetooth recovery error: %s" % str(e))
+            return False
 
     def save_bluetooth_mode_to_config(self):
         """Optional: Save current Bluetooth mode override to config."""

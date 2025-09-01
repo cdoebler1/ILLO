@@ -20,6 +20,7 @@ debug_audio = False  # Enable audio processing debug messages
 debug_memory = True  # Enable memory usage monitoring
 debug_interactions = False  # Enable interaction debug messages
 
+
 def _fs_writable_check():
     """Return True if CIRCUITPY is writable, False if USB RO is active."""
     test_path = "._writetest.tmp"
@@ -86,15 +87,16 @@ def main():
     memory_mgr = MemoryManager(enable_debug=debug_memory)
     interaction_mgr = InteractionManager(enable_debug=debug_interactions)
 
-    # Extract configuration values
-    routine = config['routine']
-    mode = config['mode']
-    name = config['name']
-    college_spirit_enabled = config['college_spirit_enabled']
-    college = config['college']
-    ufo_persistent_memory = config['ufo_persistent_memory']
-    college_chant_detection_enabled = config['college_chant_detection_enabled']
-    bluetooth_enabled = config['bluetooth_enabled']
+    # Extract configuration values with safe defaults
+    routine = config.get('routine', 1)
+    mode = config.get('mode', 1)
+    name = config.get('name', 'UFO')
+    college_spirit_enabled = config.get('college_spirit_enabled', False)
+    college = config.get('college', '')
+    ufo_persistent_memory = config.get('ufo_persistent_memory', False)
+    college_chant_detection_enabled = config.get('college_chant_detection_enabled',
+                                                 False)
+    bluetooth_enabled = config.get('bluetooth_enabled', True)
 
     # System initialization
     _fs_is_writable = _fs_writable_check()
@@ -134,9 +136,13 @@ def main():
         # Routine management - lazy instantiation
         if routine != active_routine_number:
             if current_routine_instance:
+                # Call cleanup method if available
+                if hasattr(current_routine_instance, 'cleanup'):
+                    current_routine_instance.cleanup()
+
                 memory_mgr.cleanup_before_routine_change()
                 del current_routine_instance
-                
+
                 # Force garbage collection after deleting heavy routine
                 import gc
                 gc.collect()
@@ -144,15 +150,15 @@ def main():
 
             interaction_mgr.setup_for_routine(routine)
             current_routine_instance = create_routine_instance(
-                routine, name, _persist_this_run, college_spirit_enabled, 
+                routine, name, _persist_this_run, college_spirit_enabled,
                 college, bluetooth_enabled, debug_bluetooth, debug_audio
             )
-            
+
             if current_routine_instance:
                 active_routine_number = routine
-                print(" Loaded routine %d" % routine)
+                print("✅ Loaded routine %d" % routine)
             else:
-                print(" Failed to load routine %d" % routine)
+                print("❌ Failed to load routine %d" % routine)
 
         # Interaction detection
         interactions = interaction_mgr.check_interactions(routine, volume, cp.pixels)
@@ -211,46 +217,66 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
     Returns:
         routine instance or None
     """
+    instance = None
+
     try:
         if routine == 1:
             print("[SYSTEM] Loading UFO Intelligence (heavy memory usage)...")
             from ufo_intelligence import UFOIntelligence
-            return UFOIntelligence(
+            instance = UFOIntelligence(
                 device_name=name,
+                debug_bluetooth=bt_debug,
+                debug_audio=audio_debug,
                 persistent_memory=_persist_this_run,
                 college_spirit_enabled=college_spirit_enabled,
                 college=college
             )
+            # Check if instance initialized properly using hasattr to avoid method dependency
+            if hasattr(instance, 'ai_core') and hasattr(instance,
+                                                        'behaviors') and hasattr(
+                instance, 'learning'):
+                if instance.ai_core is None or instance.behaviors is None or instance.learning is None:
+                    print(
+                        "[SYSTEM] ❌ UFO Intelligence failed to initialize critical systems")
+                    if hasattr(instance, 'cleanup'):
+                        instance.cleanup()
+                    return None
         elif routine == 2:
             print("[SYSTEM] Loading Intergalactic Cruising...")
             from intergalactic_cruising import IntergalacticCruising
             instance = IntergalacticCruising()
-            
+
             # Only enable Bluetooth if both config allows it AND it was initialized
-            if bluetooth_enabled and hasattr(instance, 'bluetooth') and instance.bluetooth:
+            if bluetooth_enabled and hasattr(instance,
+                                             'bluetooth') and instance.bluetooth:
                 print("[SYSTEM] 📱 Enabling Bluetooth control...")
                 instance.enable_bluetooth()
                 instance.enable_debug()  # This enables debug for both cruiser and bluetooth
             else:
                 print("[SYSTEM] 🏃 High-performance mode (Bluetooth disabled)")
-            
-            return instance
+
         elif routine == 3:
             print("[SYSTEM] Loading Meditate...")
             from meditate import Meditate
-            return Meditate()
+            instance = Meditate()
+
         elif routine == 4:
             print("[SYSTEM] Loading Dance Party...")
             from dance_party import DanceParty
-            return DanceParty(name, bt_debug, audio_debug)
-        else:
-            return None
+            instance = DanceParty(name, bt_debug, audio_debug)
+
+        return instance
+
     except MemoryError as e:
         print("[SYSTEM] ❌ Memory error loading routine %d: %s" % (routine, str(e)))
         print("[SYSTEM] 💡 Try restarting or using a simpler routine")
+        if instance and hasattr(instance, 'cleanup'):
+            instance.cleanup()
         return None
     except Exception as e:
         print("[SYSTEM] ❌ Error loading routine %d: %s" % (routine, str(e)))
+        if instance and hasattr(instance, 'cleanup'):
+            instance.cleanup()
         return None
 
 
@@ -294,7 +320,7 @@ def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_
 def handle_ufo_intelligence_learning(routine, current_routine_instance, interactions):
     """
     Handle UFO Intelligence learning from interactions.
-    
+
     Args:
         routine: Current routine number
         current_routine_instance: The active routine instance
@@ -312,6 +338,12 @@ def handle_ufo_intelligence_learning(routine, current_routine_instance, interact
     if interactions['shake']:
         current_routine_instance.energy_level = min(100,
                                                     current_routine_instance.energy_level + 15)
+
+    # Handle light interactions for UFO Intelligence learning
+    if interactions.get('light_interaction', False):
+        print("[UFO AI] 💡 Light interaction detected via InteractionManager!")
+        current_routine_instance.last_interaction = time.monotonic()
+        # You could add specific light interaction learning here
 
 
 if __name__ == "__main__":

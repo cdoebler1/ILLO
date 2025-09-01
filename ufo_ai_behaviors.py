@@ -19,6 +19,8 @@ class UFOAIBehaviors:
     def execute_behavior(self, mood, color_func, volume, current_time, 
                         curiosity_level, energy_level, audio_processor=None):
         """Execute the UFO's current behavioral state with college awareness."""
+        # Note: Brightness management is now handled centrally by InteractionManager
+        
         # Store audio processor for reuse to prevent memory leaks
         if audio_processor:
             self._shared_audio_processor = audio_processor
@@ -164,7 +166,9 @@ class UFOAIBehaviors:
 
     def _attention_seeking_visualizer(self, color_func, volume, current_time, curiosity_level):
         """Enhanced audio visualizer for attention-seeking behavior."""
-        print("[UFO AI] 🎵 Audio visualizer mode active (Routine 1)")
+        # Only show debug message if audio debug is enabled
+        if hasattr(self.hardware, 'debug_audio') and self.hardware.debug_audio:
+            print("[UFO AI] 🎵 Audio visualizer mode active (Routine 1)")
         
         try:
             # Use shared audio processor if available, otherwise create one
