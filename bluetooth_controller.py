@@ -87,14 +87,11 @@ class BluefruitController:
             self.advertising_start_time = time.monotonic()
             self.advertising_timeout = timeout_seconds
 
-            print("[BT] 📱 Advertising for %d seconds..." % timeout_seconds)
-            if self.debug:
-                print(
-                    "[BT] Users have %d seconds to connect via Bluefruit Connect app" % timeout_seconds)
             return True
 
         except Exception as e:
-            print("[BT] Failed to start advertising: %s" % str(e))
+            if self.debug:
+                print("[BT] Failed to start advertising: %s" % str(e))
             return False
 
     def manage_advertising(self):
@@ -111,18 +108,12 @@ class BluefruitController:
 
                 if advertising_duration > self.advertising_timeout:
                     self.ble.stop_advertising()
-                    print(
-                        "[BT] ⏰ Advertising timeout after %d seconds" % self.advertising_timeout)
-                    if self.debug:
-                        print(
-                            "[BT] To reconnect: Use Bluefruit Connect app's 'Connect' history")
 
             # Auto re-advertise periodically if enabled and no connection
             elif self.auto_readvertise and not self.is_connected():
                 time_since_last = current_time - self.last_readvertise
 
                 if time_since_last > self.readvertise_interval:
-                    print("[BT] 🔄 Auto re-advertising for new connections...")
                     self.start_advertising(self.advertising_timeout)
                     self.last_readvertise = current_time
 
@@ -149,10 +140,6 @@ class BluefruitController:
         try:
             # Simple connection check - we ARE the peripheral, not looking for services
             if self.ble.connected:
-                if self.debug:
-                    print("[BT] BLE connected: %s, connections: %d" % 
-                          (self.ble.connected, len(self.ble.connections)))
-                
                 # Get the first connection
                 if len(self.ble.connections) > 0:
                     current_connection = self.ble.connections[0]
@@ -160,15 +147,12 @@ class BluefruitController:
                     if current_connection.connected:
                         # We don't need to find UART in the connection - WE provide it
                         if not self.connection:
-                            print("[BT] ✅ New device connected!")
                             self.connection = current_connection
                             # We already have uart_service from init - just use it
                             
                             # Stop advertising when connected
                             if self.ble.advertising:
                                 self.ble.stop_advertising()
-                                if self.debug:
-                                    print("[BT] Stopped advertising - device connected")
 
                             # Send welcome message
                             self.send_response("ILLO Intergalactic Cruising ready!\nType /help for commands")
@@ -194,13 +178,11 @@ class BluefruitController:
     def handle_disconnection(self):
         """Handle when a device disconnects."""
         if self.connection:
-            print("[BT] 📱 Device disconnected")
             self.connection = None
             self.uart_service = None
 
             # Optionally restart advertising for new connections
             if self.auto_readvertise:
-                print("[BT] 🔄 Restarting advertising for reconnection...")
                 self.start_advertising(60)  # Shorter timeout for reconnection
 
     def set_advertising_config(self, timeout_seconds=120, auto_readvertise=True,
@@ -210,8 +192,6 @@ class BluefruitController:
         self.auto_readvertise = auto_readvertise
         self.readvertise_interval = readvertise_interval
 
-        print("[BT] Advertising config: %ds timeout, auto-readvertise: %s" %
-              (timeout_seconds, auto_readvertise))
 
     def process_commands(self):
         """Process incoming commands from Bluefruit Connect app."""
