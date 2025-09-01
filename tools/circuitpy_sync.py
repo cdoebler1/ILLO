@@ -14,7 +14,21 @@ class CircuitPySync:
         if self.project_root.name == 'tools':
             self.project_root = self.project_root.parent
             
-        self.config_path = config_path or self.project_root / 'sync_config.json'
+        # Set config path - check tools directory first, then project root
+        if config_path:
+            self.config_path = Path(config_path)
+        else:
+            # Try tools directory first, then project root
+            tools_config = self.project_root / 'tools' / 'sync_config.json'
+            root_config = self.project_root / 'sync_config.json'
+            
+            if tools_config.exists():
+                self.config_path = tools_config
+            elif root_config.exists():
+                self.config_path = root_config
+            else:
+                # Default to tools directory for new installations
+                self.config_path = tools_config
         self.circuitpy_drive = None
         self.auto_sync = False
         self.sync_thread = None
@@ -204,42 +218,61 @@ class CircuitPySync:
         return discovered
     
     def sync_all(self, include_development: bool = False) -> bool:
-        """Sync all configured files and directories"""
+        """Sync all configured files and directories with auto-reload protection"""
         if not self.detect_drive():
             return False
         
         print("🔄 Starting full sync to Circuit Playground...")
         
+        # Disable auto-reload during sync
+        self._disable_circuitpy_autoreload()
+        
+        try:
         # Determine files to sync
-        files_to_sync = self.sync_files.copy()
+            files_to_sync = self.sync_files.copy()
         
-        # Add auto-discovered files if enabled
-        if self.auto_discover:
-            discovered = self.auto_discover_files()
-            if discovered:
-                print(f"🔍 Auto-discovered files: {', '.join(discovered)}")
-                files_to_sync.extend(discovered)
+            # Add auto-discovered files if enabled
+            if self.auto_discover:
+                discovered = self.auto_discover_files()
+                if discovered:
+                    print(f"🔍 Auto-discovered files: {', '.join(discovered)}")
+                    files_to_sync.extend(discovered)
         
-        # Add development files if requested
-        if include_development:
-            files_to_sync.extend(self.development_files)
-            print(f"🛠️  Including development files: {', '.join(self.development_files)}")
+            # Add development files if requested
+            if include_development:
+                files_to_sync.extend(self.development_files)
+                print(f"🛠️  Including development files: {', '.join(self.development_files)}")
         
-        success_count = 0
-        total_items = len(files_to_sync) + len(self.sync_directories)
+            success_count = 0
+            total_items = len(files_to_sync) + len(self.sync_directories)
         
-        # Sync individual files
-        for filename in files_to_sync:
-            if self.sync_file(filename):
-                success_count += 1
+            # Sync directories first
+            for dirname in self.sync_directories:
+                if self.sync_directory(dirname):
+                    success_count += 1
         
-        # Sync directories
-        for dirname in self.sync_directories:
-            if self.sync_directory(dirname):
-                success_count += 1
+            # Sync non-critical files first
+            critical_files = ['boot.py', 'code.py']
+            other_files = [f for f in files_to_sync if f not in critical_files]
+            critical_files_to_sync = [f for f in files_to_sync if f in critical_files]
         
-        print(f"✅ Sync complete: {success_count}/{total_items} items transferred")
-        return success_count == total_items
+            # Sync other files first
+            for filename in other_files:
+                if self.sync_file(filename):
+                    success_count += 1
+        
+            # Sync critical files last
+            for filename in critical_files_to_sync:
+                if self.sync_file(filename):
+                    success_count += 1
+        
+            print(f"✅ Sync complete: {success_count}/{total_items} items transferred")
+            return success_count == total_items
+        
+        finally:
+            # Always re-enable auto-reload, even if sync failed
+            time.sleep(0.5)  # Give filesystem time to settle
+            self._enable_circuitpy_autoreload()
     
     def watch_and_sync(self, interval: float = 2.0):
         """Watch for file changes and auto-sync"""
@@ -343,6 +376,34 @@ class CircuitPySync:
         except Exception as e:
             print(f"❌ Failed to reset Circuit Playground: {e}")
             return False
+    
+    def _disable_circuitpy_autoreload(self):
+        """Disable CircuitPython auto-reload during sync"""
+        if not self.circuitpy_drive:
+            return False
+        
+        try:
+            # Create .no_auto_run file to disable auto-reload
+            no_reload_file = Path(self.circuitpy_drive) / ".no_auto_run"
+            no_reload_file.touch()
+            print("🛑 Disabled CircuitPython auto-reload for sync")
+            return True
+        except Exception as e:
+            print(f"⚠️  Couldn't disable auto-reload: {e}")
+            return False
+
+    def _enable_circuitpy_autoreload(self):
+        """Re-enable CircuitPython auto-reload after sync"""
+        if not self.circuitpy_drive:
+            return
+        
+        try:
+            no_reload_file = Path(self.circuitpy_drive) / ".no_auto_run"
+            if no_reload_file.exists():
+                no_reload_file.unlink()
+                print("✅ Re-enabled CircuitPython auto-reload")
+        except Exception as e:
+            print(f"⚠️  Couldn't re-enable auto-reload: {e}")
 
 
 def main():

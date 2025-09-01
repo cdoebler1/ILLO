@@ -1,7 +1,6 @@
 {
   "sync_files": [
     "code.py",
-    "boot.py",
     "config.json",
     "chant_detector.py",
     "audio_processor.py",
