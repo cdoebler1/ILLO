@@ -25,7 +25,8 @@ class ConfigManager:
                 'college_spirit_enabled': data.get('college_spirit_enabled', True),
                 'college': data.get('college', 'none'),
                 'ufo_persistent_memory': data.get('ufo_persistent_memory', False),
-                'college_chant_detection_enabled': data.get('college_chant_detection_enabled', True)
+                'college_chant_detection_enabled': data.get('college_chant_detection_enabled', True),
+                'bluetooth_enabled': data.get('bluetooth_enabled', True)  # Default to enabled for compatibility
             }
         except Exception as e:
             print("[CONFIG] ❌ Failed to load config: %s" % str(e))
@@ -37,9 +38,10 @@ class ConfigManager:
                 'college_spirit_enabled': True,
                 'college': 'none',
                 'ufo_persistent_memory': False,
-                'college_chant_detection_enabled': True
+                'college_chant_detection_enabled': True,
+                'bluetooth_enabled': True
             }
-    
+
     def save_config(self, config):
         """
         Save current configuration to config.json file.
@@ -56,14 +58,15 @@ class ConfigManager:
                 'college_spirit_enabled': config.get('college_spirit_enabled', True),
                 'college': config.get('college', 'none'),
                 'ufo_persistent_memory': config.get('ufo_persistent_memory', False),
-                'college_chant_detection_enabled': config.get('college_chant_detection_enabled', True)
+                'college_chant_detection_enabled': config.get('college_chant_detection_enabled', True),
+                'bluetooth_enabled': config.get('bluetooth_enabled', True)
             }
             
             with open('config.json', 'w') as config_file:
                 json.dump(config_data, config_file)
             
-            print("[CONFIG] ⚙️ Configuration saved: Routine %d, Mode %d" % 
-                  (config_data['routine'], config_data['mode']))
+            print("[CONFIG] ⚙️ Configuration saved: Routine %d, Mode %d, BT: %s" % 
+                  (config_data['routine'], config_data['mode'], config_data['bluetooth_enabled']))
             return True
             
         except (OSError, RuntimeError) as e:

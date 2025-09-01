@@ -8,16 +8,17 @@
 # Accelerometer shake detection for "turbulence" effects
 
 from adafruit_circuitplayground import cp
-from intergalactic_cruising import IntergalacticCruising
-from dance_party import DanceParty
-from meditate import Meditate
-from ufo_intelligence import UFOIntelligence
 import time
 from config_manager import ConfigManager
 from memory_manager import MemoryManager
 from interaction_manager import InteractionManager
 import os
 
+# Debug Configuration - Set these flags to enable debug output
+debug_bluetooth = False  # Enable Bluetooth debug messages
+debug_audio = False  # Enable audio processing debug messages
+debug_memory = True  # Enable memory usage monitoring
+debug_interactions = False  # Enable interaction debug messages
 
 def _fs_writable_check():
     """Return True if CIRCUITPY is writable, False if USB RO is active."""
@@ -77,20 +78,6 @@ def show_mode_feedback(mode):
     print("🎨 Mode %d: %s" % (mode, info["name"]))
 
 
-# Button A cycles through routines (1-4)
-# Button B cycles through color modes (1-4) 
-# Switch position controls volume (True/False)
-# NeoPixel ring represents UFO lighting effects
-# Microphone input creates reactive light patterns
-# Accelerometer shake detection for "turbulence" effects
-
-# Debug Configuration - Set these flags to enable debug output
-debug_bluetooth = False  # Enable Bluetooth debug messages
-debug_audio = False  # Enable audio processing debug messages
-debug_memory = True  # Enable memory usage monitoring
-debug_interactions = False  # Enable interaction debug messages
-
-
 def main():
     """Main application loop."""
     # Initialize managers
@@ -107,6 +94,7 @@ def main():
     college = config['college']
     ufo_persistent_memory = config['ufo_persistent_memory']
     college_chant_detection_enabled = config['college_chant_detection_enabled']
+    bluetooth_enabled = config['bluetooth_enabled']
 
     # System initialization
     _fs_is_writable = _fs_writable_check()
@@ -148,11 +136,16 @@ def main():
             if current_routine_instance:
                 memory_mgr.cleanup_before_routine_change()
                 del current_routine_instance
+                
+                # Force garbage collection after deleting heavy routine
+                import gc
+                gc.collect()
+                print("[SYSTEM] Memory freed, available: %d bytes" % gc.mem_free())
 
             interaction_mgr.setup_for_routine(routine)
             current_routine_instance = create_routine_instance(
                 routine, name, _persist_this_run, college_spirit_enabled, 
-                college, debug_bluetooth, debug_audio
+                college, bluetooth_enabled, debug_bluetooth, debug_audio
             )
             
             if current_routine_instance:
@@ -185,7 +178,8 @@ def main():
                 'college_spirit_enabled': college_spirit_enabled,
                 'college': college,
                 'ufo_persistent_memory': ufo_persistent_memory,
-                'college_chant_detection_enabled': college_chant_detection_enabled
+                'college_chant_detection_enabled': college_chant_detection_enabled,
+                'bluetooth_enabled': bluetooth_enabled
             })
             config_mgr.save_config(config)
             config_changed = False
@@ -199,9 +193,10 @@ def main():
 
 
 def create_routine_instance(routine, name, _persist_this_run, college_spirit_enabled,
-                            college, bt_debug, audio_debug):
+                            college, bluetooth_enabled, bt_debug, audio_debug):
     """
     Create a routine instance based on routine number.
+    Uses lazy imports to save memory by only loading needed routines.
     
     Args:
         routine: Routine number (1-4)
@@ -209,26 +204,53 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
         _persist_this_run: Whether to enable persistent memory
         college_spirit_enabled: Whether college spirit is enabled
         college: College name
+        bluetooth_enabled: Whether Bluetooth is enabled in config
         bt_debug: Bluetooth debug flag
         audio_debug: Audio debug flag
     
     Returns:
         routine instance or None
     """
-    if routine == 1:
-        return UFOIntelligence(
-            device_name=name,
-            persistent_memory=_persist_this_run,
-            college_spirit_enabled=college_spirit_enabled,
-            college=college
-        )
-    elif routine == 2:
-        return IntergalacticCruising()
-    elif routine == 3:
-        return Meditate()
-    elif routine == 4:
-        return DanceParty(name, bt_debug, audio_debug)
-    else:
+    try:
+        if routine == 1:
+            print("[SYSTEM] Loading UFO Intelligence (heavy memory usage)...")
+            from ufo_intelligence import UFOIntelligence
+            return UFOIntelligence(
+                device_name=name,
+                persistent_memory=_persist_this_run,
+                college_spirit_enabled=college_spirit_enabled,
+                college=college
+            )
+        elif routine == 2:
+            print("[SYSTEM] Loading Intergalactic Cruising...")
+            from intergalactic_cruising import IntergalacticCruising
+            instance = IntergalacticCruising()
+            
+            # Only enable Bluetooth if both config allows it AND it was initialized
+            if bluetooth_enabled and hasattr(instance, 'bluetooth') and instance.bluetooth:
+                print("[SYSTEM] 📱 Enabling Bluetooth control...")
+                instance.enable_bluetooth()
+                instance.enable_debug()  # This enables debug for both cruiser and bluetooth
+            else:
+                print("[SYSTEM] 🏃 High-performance mode (Bluetooth disabled)")
+            
+            return instance
+        elif routine == 3:
+            print("[SYSTEM] Loading Meditate...")
+            from meditate import Meditate
+            return Meditate()
+        elif routine == 4:
+            print("[SYSTEM] Loading Dance Party...")
+            from dance_party import DanceParty
+            return DanceParty(name, bt_debug, audio_debug)
+        else:
+            return None
+    except MemoryError as e:
+        print("[SYSTEM] ❌ Memory error loading routine %d: %s" % (routine, str(e)))
+        print("[SYSTEM] 💡 Try restarting or using a simpler routine")
+        return None
+    except Exception as e:
+        print("[SYSTEM] ❌ Error loading routine %d: %s" % (routine, str(e)))
         return None
 
 

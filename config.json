@@ -5,5 +5,6 @@
     "college_spirit_enabled": true,
     "college": "penn_state", 
     "ufo_persistent_memory": true,
-    "college_chant_detection_enabled": false
+    "college_chant_detection_enabled": false,
+    "bluetooth_enabled": true
 }
