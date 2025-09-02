@@ -1,10 +1,10 @@
 {
-  "routine": 2,
+  "routine": 1,
   "mode": 1,
-  "name": "UFO",
-  "college_spirit_enabled": false,
+  "name": "ILLO_1",
   "college": "penn_state",
-  "ufo_persistent_memory": false,
+  "college_spirit_enabled": true,
   "college_chant_detection_enabled": false,
+  "ufo_persistent_memory": false,
   "bluetooth_enabled": false
 }
