@@ -3,11 +3,13 @@
 
 from adafruit_circuitplayground import cp
 import simpleio
+import time
 
 class HardwareManager:
     def __init__(self):
         self.pixels = cp.pixels
-        self.pixels.brightness = 0.1  # Battery conservation
+        self.base_brightness = 0.1  # Default brightness for battery conservation
+        self.pixels.brightness = self.base_brightness
         
     def update_pixels_with_data(self, pixel_data, color_func):
         """Update pixels based on data array and color function."""
@@ -18,29 +20,34 @@ class HardwareManager:
     def clear_pixels(self):
         """Clear all pixels."""
         self.pixels.fill(0)
-        
-    def play_tone_if_enabled(self, freq, duration, volume):
+
+    @staticmethod
+    def play_tone_if_enabled(freq, duration, volume):
         """Play tone if volume is enabled."""
         if volume == 1:
             cp.play_tone(freq, duration, 1)
-            
-    def map_deltas_to_pixels(self, deltas):
+
+    @staticmethod
+    def map_deltas_to_pixels(deltas):
         """Map audio deltas to pixel positions."""
         pixel_data = [0] * 10
         for ii, delta in enumerate(deltas):
             ix = round(simpleio.map_range(ii, 0, len(deltas), 0, 9))
             pixel_data[ix] += delta
         return pixel_data
-    
-    def get_accelerometer(self):
+
+    @staticmethod
+    def get_accelerometer():
         """Get accelerometer data from the Circuit Playground."""
         return cp.acceleration
-    
-    def tap_detected(self):
+
+    @staticmethod
+    def tap_detected():
         """Check if a tap has been detected."""
         return cp.tapped
-    
-    def shake_detected(self, threshold=11):
+
+    @staticmethod
+    def shake_detected(threshold=11):
         """Check if a shake has been detected."""
         return cp.shake(shake_threshold=threshold)
     

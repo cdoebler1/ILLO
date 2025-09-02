@@ -1,0 +1,37 @@
+{
+  "sync_files": [
+    "code.py",
+    "config.json",
+    "chant_detector.py",
+    "audio_processor.py",
+    "college_manager.py",
+    "ufo_college_system.py",
+    "ufo_intelligence.py",
+    "ufo_ai_behaviors.py",
+    "ufo_ai_core.py",
+    "ufo_learning.py",
+    "ufo_memory_manager.py",
+    "hardware_manager.py",
+    "base_routine.py",
+    "color_utils.py",
+    "physical_actions.py",
+    "dance_party.py",
+    "music_player.py",
+    "meditate.py",
+    "intergalactic_cruising.py"
+  ],
+  "sync_directories": [
+    "lib",
+    "colleges",
+    "sd"
+  ],
+  "ignore_patterns": [
+    "*.pyc",
+    "__pycache__",
+    ".git",
+    "venv",
+    "*.tmp"
+  ],
+  "auto_discover": true,
+  "max_file_size_mb": 5
+}
