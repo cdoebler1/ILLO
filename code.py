@@ -261,9 +261,55 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
             instance = Meditate()
 
         elif routine == 4:
-            print("[SYSTEM] Loading Dance Party...")
-            from dance_party import DanceParty
-            instance = DanceParty(name, bt_debug, audio_debug)
+            print("[SYSTEM] ===== Loading Dance Party =====")
+            try:
+                from dance_party import DanceParty
+                print("[SYSTEM] DanceParty import successful")
+
+                print("[SYSTEM] Creating DanceParty instance with:")
+                print("[SYSTEM]   name: %s" % name)
+                print("[SYSTEM]   bt_debug: %s" % bt_debug)
+                print("[SYSTEM]   audio_debug: %s" % audio_debug)
+
+                instance = DanceParty(name, bt_debug, audio_debug)
+                print("[SYSTEM] DanceParty instance created: %s" % str(instance))
+
+                # Check if instance has bluetooth attribute
+                print("[SYSTEM] Checking instance attributes...")
+                print(
+                    "[SYSTEM]   hasattr(instance, 'bluetooth'): %s" % hasattr(instance,
+                                                                              'bluetooth'))
+                if hasattr(instance, 'bluetooth'):
+                    print("[SYSTEM]   instance.bluetooth: %s" % str(instance.bluetooth))
+                    print("[SYSTEM]   instance.bluetooth is not None: %s" % (
+                                instance.bluetooth is not None))
+
+                print("[SYSTEM] bluetooth_enabled from config: %s" % bluetooth_enabled)
+
+                # Enable Bluetooth for Dance Party like we do for Intergalactic Cruising
+                if bluetooth_enabled and hasattr(instance,
+                                                 'bluetooth') and instance.bluetooth:
+                    print("[SYSTEM] ===== Enabling Bluetooth for Dance Party =====")
+                    success = instance.enable_bluetooth()
+                    if success:
+                        print("[SYSTEM] ✅ Dance Party Bluetooth enabled")
+                    else:
+                        print("[SYSTEM] ❌ Failed to enable Dance Party Bluetooth")
+                else:
+                    print(
+                        "[SYSTEM] 🏃 Dance Party in standalone mode (Bluetooth disabled)")
+                    print("[SYSTEM] Bluetooth diagnostic:")
+                    if not bluetooth_enabled:
+                        print("[SYSTEM]   Reason: Bluetooth disabled in config")
+                    elif not hasattr(instance, 'bluetooth'):
+                        print("[SYSTEM]   Reason: No bluetooth attribute")
+                    elif not instance.bluetooth:
+                        print("[SYSTEM]   Reason: bluetooth attribute is None")
+
+            except Exception as e:
+                print("[SYSTEM] ❌ Error in Dance Party setup: %s" % str(e))
+                print("[SYSTEM] Error type: %s" % type(e).__name__)
+                instance = None
 
         return instance
 
