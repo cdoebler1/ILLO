@@ -125,12 +125,13 @@ ILLO features a sophisticated music player that handles:
    - `config.json` for system settings
 5. **Download and install libraries** to the `lib/` folder:
    - From the CircuitPython Library Bundle, copy these to `lib/`:
-     - `adafruit_circuitplayground/` (folder)
-     - `neopixel.mpy`
      - `adafruit_ble/` (folder)
      - `adafruit_bluefruit_connect/` (folder)
+     - `adafruit_circuitplayground/` (folder)
+     - `adafruit_lis3dh.mpy`
+     - `adafruit_thermistor.mpy`
+     - `neopixel.mpy`
      - `simpleio.mpy`
-     - `ulab/` (folder) - for audio processing
 6. **Verify installation** - the CIRCUITPY drive should look like this:
    ```
    CIRCUITPY/
@@ -143,7 +144,8 @@ ILLO features a sophisticated music player that handles:
        ├── adafruit_circuitplayground/
        ├── adafruit_ble/
        ├── adafruit_bluefruit_connect/
-       ├── ulab/
+       ├── adafruit_lis3dh.mpy
+       ├── adafruit_thermistor.mpy
        ├── neopixel.mpy
        └── simpleio.mpy
    ```
@@ -234,18 +236,18 @@ ILLO uses `config.json` for system settings:
 - `routine`: Default operating mode (1-4)
 - `mode`: Default color theme (1-4)
 - `name`: Device name for Bluetooth and identification
-- `college_spirit_enabled`: Enable/disable college integration features
 - `college`: College configuration to load (matches filename in colleges/)
-- `ufo_persistent_memory`: Enable AI memory persistence across power cycles
+- `college_spirit_enabled`: Enable/disable college integration features
 - `college_chant_detection_enabled`: Enable real-time chant recognition
-- `bluetooth_enabled`: Enable Bluetooth features (when implemented)
+- `ufo_persistent_memory`: Enable AI memory persistence across power cycles
+- `bluetooth_enabled`: Enable Bluetooth features
 
 ## 🚀 Development
 
 **Recent Updates (v2.1.0):**
 
 - ✅ Centralized light management architecture
-- ✅ Adaptive brightness control (2%-25% range)
+- ✅ Adaptive brightness control
 - ✅ Light-based interaction detection
 - ✅ Improved college integration system
 - ✅ Enhanced AI learning and memory systems
@@ -258,7 +260,13 @@ ILLO uses `config.json` for system settings:
 - Light management: **Complete**
 - College integration: **Complete**
 - Music system: **Complete**
-- Bluetooth features: **Libraries ready, implementation pending**
+- Bluetooth features: **Complete**
+- Intergalactic cruising mode: **Complete**
+- Meditation mode: **Complete**
+- Dance party mode: **Complete**
+- Documentation: **In Progress**
+- Tutorials: **In Progress**
+- Additional colleges: **In Progress
 
 **Adding New Colleges:**
 
@@ -284,7 +292,7 @@ ILLO is an open-source project welcoming contributions:
 - **No audio response**: Verify microphone functionality and audio processing libraries
 - **Memory errors**: Disable persistent memory or reduce college features
 - **College features not working**: Check college JSON file format and college name in config
-- **Bluetooth not working**: Bluetooth features are in development - libraries included for future use
+- **Bluetooth not working**: Verify Bluetooth radio and firmware compatibility
 
 ## 📄 License
 
