@@ -1,7 +1,7 @@
 # Charles Doebler at Feral Cat AI
 
 # Button A cycles through routines (1-4)
-# Button B cycles through color modes (1-4) 
+# Button B cycles through color modes (1-4)
 # Switch position controls volume (True/False)
 # NeoPixel ring represents UFO lighting effects
 # Microphone input creates reactive light patterns
@@ -13,6 +13,7 @@ from config_manager import ConfigManager
 from memory_manager import MemoryManager
 from interaction_manager import InteractionManager
 import os
+import gc
 
 # Debug Configuration - Set these flags to enable debug output
 debug_bluetooth = False  # Enable Bluetooth debug messages
@@ -20,19 +21,338 @@ debug_audio = False  # Enable audio processing debug messages
 debug_memory = True  # Enable memory usage monitoring
 debug_interactions = False  # Enable interaction debug messages
 
-
-def _fs_writable_check():
-    """Return True if CIRCUITPY is writable, False if USB RO is active."""
-    test_path = "._writetest.tmp"
-    try:
-        with open(test_path, "wb") as f:
-            f.write(b"x")
-        os.remove(test_path)
-        return True
-    except OSError:
-        return False
+# Timing constants for different update rates
+BUTTON_CHECK_MS = 20  # 50Hz for responsiveness
+VOLUME_CHECK_MS = 50  # 20Hz for volume
+INTERACTION_CHECK_MS = 25  # 40Hz for interactions
+ROUTINE_CHECK_MS = 100  # 10Hz for routine switching
+MAINTENANCE_MS = 1000  # 1Hz for maintenance
+GC_INTERVAL_MS = 2000  # GC every 2 seconds
 
 
+class LightweightController:
+    """Memory-efficient controller without task overhead."""
+
+    def __init__(self):
+        # Core managers
+        self.config_mgr = ConfigManager()
+        config = self.config_mgr.load_config()
+        self.memory_mgr = MemoryManager(enable_debug=debug_memory)
+        self.interaction_mgr = InteractionManager(enable_debug=debug_interactions)
+
+        # State variables (minimal memory footprint)
+        self.routine = config.get('routine', 1)
+        self.mode = config.get('mode', 1)
+        self.volume = False
+        self.name = config.get('name', 'UFO')
+        self.college_spirit_enabled = config.get('college_spirit_enabled', False)
+        self.college = config.get('college', '')
+        self.ufo_persistent_memory = config.get('ufo_persistent_memory', False)
+        self.college_chant_detection_enabled = config.get(
+            'college_chant_detection_enabled', False)
+        self.bluetooth_enabled = config.get('bluetooth_enabled', True)
+
+        # Button state
+        self.last_button_a_time = 0
+        self.last_button_b_time = 0
+        self.button_debounce_delay = 0.3
+
+        # Feedback state
+        self.feedback_clear_time = None
+        self.showing_feedback = False
+
+        # Config management
+        self.config_save_timer = 0
+        self.config_changed = False
+
+        # Routine management
+        self.current_routine_instance = None
+        self.active_routine_number = 0
+        self.switching_routine = False
+
+        # Timing state
+        self.last_times = {
+            'button': 0,
+            'volume': 0,
+            'interaction': 0,
+            'routine': 0,
+            'maintenance': 0,
+            'gc': 0
+        }
+
+        # System initialization
+        self._fs_is_writable = self._fs_writable_check()
+        self._persist_this_run = bool(
+            self.ufo_persistent_memory and self._fs_is_writable)
+
+        print("🛸 UFO System with Lightweight Control Initialized")
+        print("   Current: Routine %d, Mode %d, Sound %s" % (
+            self.routine, self.mode, "ON" if self.volume else "OFF"))
+
+        if self.ufo_persistent_memory and not self._fs_is_writable:
+            print(
+                "⚠️ Persistent memory REQUESTED but DISABLED (USB write-protect detected)")
+        elif self._persist_this_run:
+            print(
+                "💾 Persistent memory ENABLED — Illo will remember personality across sessions")
+        else:
+            print("🔄 Persistent memory DISABLED — Illo resets personality each session")
+
+        cp.detect_taps = 1
+
+    def _fs_writable_check(self):
+        """Return True if CIRCUITPY is writable, False if USB RO is active."""
+        test_path = "._writetest.tmp"
+        try:
+            with open(test_path, "wb") as f:
+                f.write(b"x")
+            os.remove(test_path)
+            return True
+        except OSError:
+            return False
+
+    def check_buttons(self, now):
+        """Handle button presses with debouncing."""
+        # Handle feedback clearing if needed
+        if self.feedback_clear_time and now >= self.feedback_clear_time:
+            cp.pixels.fill((0, 0, 0))
+            cp.pixels.show()
+            self.feedback_clear_time = None
+            self.showing_feedback = False
+
+        # Skip button checking while showing feedback
+        if self.showing_feedback:
+            return
+
+        # Check for button presses with debouncing
+        button_a_pressed = cp.button_a and (
+                    now - self.last_button_a_time > self.button_debounce_delay)
+        button_b_pressed = cp.button_b and (
+                    now - self.last_button_b_time > self.button_debounce_delay)
+
+        if button_a_pressed:
+            new_routine = (self.routine % 4) + 1
+            
+            # CRITICAL: Save IMMEDIATELY before changing routine
+            try:
+                temp_config = {
+                    'routine': new_routine,
+                    'mode': self.mode,
+                    'name': self.name,
+                    'college_spirit_enabled': self.college_spirit_enabled,
+                    'college': self.college,
+                    'ufo_persistent_memory': self.ufo_persistent_memory,
+                    'college_chant_detection_enabled': self.college_chant_detection_enabled,
+                    'bluetooth_enabled': self.bluetooth_enabled
+                }
+            
+                save_success = self.config_mgr.save_config(temp_config)
+                if save_success:
+                    print("💾 EMERGENCY SAVE: Routine %d saved before switch" % new_routine)
+                    self.routine = new_routine
+                    self.config_changed = False  # Already saved
+                else:
+                    print("❌ EMERGENCY SAVE FAILED - keeping routine %d" % self.routine)
+                    return  # Don't change routine if save failed
+                
+            except Exception as e:
+                print("❌ EMERGENCY SAVE ERROR: %s - keeping routine %d" % (str(e), self.routine))
+                return
+        
+            self.last_button_a_time = now
+            show_routine_feedback(self.routine)
+            self.feedback_clear_time = now + 0.8
+            self.showing_feedback = True
+
+        if button_b_pressed:
+            self.mode = (self.mode % 4) + 1
+            self.last_button_b_time = now
+            self.config_changed = True
+            self.config_save_timer = now
+            show_mode_feedback(self.mode)
+            self.feedback_clear_time = now + 0.8
+            self.showing_feedback = True
+
+    def check_volume(self, now):
+        """Update volume state from switch."""
+        self.volume = cp.switch
+
+    def check_routine_switching(self, now):
+        """Handle routine switching logic."""
+        if self.switching_routine:
+            return
+
+        if self.routine != self.active_routine_number:
+            self.switching_routine = True
+            print("[ROUTINE] Switching from routine %d to %d" %
+                  (self.active_routine_number, self.routine))
+
+            try:
+                # Cleanup old routine
+                if self.current_routine_instance:
+                    if hasattr(self.current_routine_instance, 'cleanup'):
+                        self.current_routine_instance.cleanup()
+                    del self.current_routine_instance
+                    self.current_routine_instance = None
+                    gc.collect()
+                    if debug_memory:
+                        print(
+                            "[ROUTINE] Memory freed, available: %d bytes" % gc.mem_free())
+
+                # Setup new routine
+                self.interaction_mgr.setup_for_routine(self.routine)
+                self.current_routine_instance = create_routine_instance(
+                    self.routine, self.name, self._persist_this_run,
+                    self.college_spirit_enabled, self.college,
+                    self.bluetooth_enabled, debug_bluetooth, debug_audio
+                )
+
+                if self.current_routine_instance:
+                    self.active_routine_number = self.routine
+                    print("✅ Loaded routine %d successfully" % self.routine)
+                else:
+                    print("❌ Failed to load routine %d" % self.routine)
+
+            except Exception as e:
+                print("❌ Error during routine switch: %s" % str(e))
+                self.current_routine_instance = None
+            finally:
+                self.switching_routine = False
+
+    def check_interactions(self, now):
+        """Handle interaction detection."""
+        if not self.current_routine_instance:
+            return
+
+        # Detect interactions
+        interactions = self.interaction_mgr.check_interactions(
+            self.routine, self.volume, cp.pixels
+        )
+
+        # Handle UFO Intelligence learning (only for routine 1)
+        if self.routine == 1:
+            self._handle_ufo_intelligence_learning(interactions, now)
+
+    def _handle_ufo_intelligence_learning(self, interactions, now):
+        """Handle UFO Intelligence learning from interactions."""
+        current_routine = self.current_routine_instance
+        if not current_routine:
+            return
+
+        # Pass interactions to UFO Intelligence for learning
+        if interactions['tap'] or interactions['shake']:
+            current_routine.last_interaction = now
+            if hasattr(current_routine, 'mood') and current_routine.mood == "curious":
+                if hasattr(current_routine, 'record_successful_attention'):
+                    current_routine.record_successful_attention()
+
+        if interactions['shake']:
+            if hasattr(current_routine, 'energy_level'):
+                current_routine.energy_level = min(100,
+                                                   current_routine.energy_level + 15)
+
+        # Handle light interactions
+        if interactions.get('light_interaction', False):
+            if debug_interactions:
+                print("[INTERACTIONS] Light interaction detected!")
+            current_routine.last_interaction = now
+
+    def run_routine(self, now):
+        """Execute the current routine."""
+        if not self.current_routine_instance:
+            return
+
+        try:
+            self.current_routine_instance.run(self.mode, self.volume)
+        except Exception as e:
+            print("❌ Routine execution error: %s" % str(e))
+
+    def maintenance(self, now):
+        """Perform periodic maintenance tasks."""
+        # Memory cleanup
+        if self.memory_mgr:
+            self.memory_mgr.periodic_cleanup()
+
+        # Config saving with 2-second delay after changes
+        if self.config_changed and (now - self.config_save_timer > 2.0):
+            config = {
+                'routine': self.routine,
+                'mode': self.mode,
+                'name': self.name,
+                'college_spirit_enabled': self.college_spirit_enabled,
+                'college': self.college,
+                'ufo_persistent_memory': self.ufo_persistent_memory,
+                'college_chant_detection_enabled': self.college_chant_detection_enabled,
+                'bluetooth_enabled': self.bluetooth_enabled
+            }
+
+            try:
+                self.config_mgr.save_config(config)
+                self.config_changed = False
+                print("💾 Configuration saved (routine: %d, mode: %d)" % (self.routine,
+                                                                         self.mode))
+            except Exception as e:
+                print("❌ Config save failed: %s" % str(e))
+
+    def run_forever(self):
+        """Main loop with time-based execution."""
+        print("🚀 Lightweight controller starting...")
+
+        while True:
+            try:
+                now = time.monotonic()
+                now_ms = int(now * 1000)
+
+                # Garbage collection
+                if now_ms - self.last_times['gc'] >= GC_INTERVAL_MS:
+                    gc.collect()
+                    self.last_times['gc'] = now_ms
+
+                # Button checking (highest frequency)
+                if now_ms - self.last_times['button'] >= BUTTON_CHECK_MS:
+                    self.check_buttons(now)
+                    self.last_times['button'] = now_ms
+
+                # Volume checking
+                if now_ms - self.last_times['volume'] >= VOLUME_CHECK_MS:
+                    self.check_volume(now)
+                    self.last_times['volume'] = now_ms
+
+                # Routine switching
+                if now_ms - self.last_times['routine'] >= ROUTINE_CHECK_MS:
+                    self.check_routine_switching(now)
+                    self.last_times['routine'] = now_ms
+
+                # Interaction checking
+                if now_ms - self.last_times['interaction'] >= INTERACTION_CHECK_MS:
+                    self.check_interactions(now)
+                    self.last_times['interaction'] = now_ms
+
+                # Always run the current routine (this is the most important)
+                self.run_routine(now)
+
+                # Maintenance (lowest frequency)
+                if now_ms - self.last_times['maintenance'] >= MAINTENANCE_MS:
+                    self.maintenance(now)
+                    self.last_times['maintenance'] = now_ms
+
+                # Small sleep to prevent CPU spinning
+                time.sleep(0.002)  # 2ms
+
+            except KeyboardInterrupt:
+                print("🛸 UFO System shutting down...")
+                break
+            except Exception as e:
+                print("❌ Controller error: %s" % str(e))
+                time.sleep(0.1)  # Brief pause on error
+
+        # Cleanup
+        if self.current_routine_instance and hasattr(self.current_routine_instance,
+                                                     'cleanup'):
+            self.current_routine_instance.cleanup()
+
+
+# Utility functions (unchanged)
 def show_routine_feedback(routine):
     """Display visual feedback for routine selection."""
     cp.pixels.fill((0, 0, 0))  # Clear all pixels
@@ -52,7 +372,7 @@ def show_routine_feedback(routine):
         cp.pixels[i] = info["color"]
 
     cp.pixels.show()
-    print("🚀 Routine %d: %s" % (routine, info["name"]))
+    print("🎯 Routine %d: %s" % (routine, info["name"]))
 
 
 def show_mode_feedback(mode):
@@ -62,9 +382,9 @@ def show_mode_feedback(mode):
     # Define mode colors and names
     mode_info = {
         1: {"color": (255, 0, 0), "name": "Rainbow Wheel"},  # Red base
-        2: {"color": (255, 0, 255), "name": "Pink Theme"},  # Pink base
-        3: {"color": (0, 0, 255), "name": "Blue Theme"},  # Blue base
-        4: {"color": (0, 255, 0), "name": "Green Theme"}  # Green base
+        2: {"color": (255, 0, 255), "name": "Pink Nebula"},  # Pink base
+        3: {"color": (0, 0, 255), "name": "Deep Space Blue"},  # Blue base
+        4: {"color": (0, 255, 0), "name": "Forest Canopy"}  # Green base
     }
 
     info = mode_info.get(mode, {"color": (255, 255, 255), "name": "Unknown"})
@@ -80,122 +400,9 @@ def show_mode_feedback(mode):
 
 
 def main():
-    """Main application loop."""
-    # Initialize managers
-    config_mgr = ConfigManager()
-    config = config_mgr.load_config()
-    memory_mgr = MemoryManager(enable_debug=debug_memory)
-    interaction_mgr = InteractionManager(enable_debug=debug_interactions)
-
-    # Extract configuration values with safe defaults
-    routine = config.get('routine', 1)
-    mode = config.get('mode', 1)
-    name = config.get('name', 'UFO')
-    college_spirit_enabled = config.get('college_spirit_enabled', False)
-    college = config.get('college', '')
-    ufo_persistent_memory = config.get('ufo_persistent_memory', False)
-    college_chant_detection_enabled = config.get('college_chant_detection_enabled',
-                                                 False)
-    bluetooth_enabled = config.get('bluetooth_enabled', True)
-
-    # System initialization
-    _fs_is_writable = _fs_writable_check()
-    _persist_this_run = bool(ufo_persistent_memory and _fs_is_writable)
-
-    # State variables
-    current_routine_instance = None
-    active_routine_number = 0
-    last_button_a_time = 0
-    last_button_b_time = 0
-    button_debounce_delay = 0.3
-    config_save_timer = 0
-    config_changed = False
-
-    # Display startup status
-    actual_volume = cp.switch
-    print("🛸 UFO System Initialized")
-    print("📋 Current: Routine %d, Mode %d, Sound %s" % (routine, mode,
-                                                        "ON" if actual_volume else "OFF"))
-
-    # Show persistent memory status
-    if ufo_persistent_memory and not _fs_is_writable:
-        print("💾 Persistent memory REQUESTED but DISABLED (USB write-protect detected)")
-    elif _persist_this_run:
-        print(
-            "💾 Persistent memory ENABLED — Illo will remember personality across sessions")
-    else:
-        print("💾 Persistent memory DISABLED — Illo resets personality each session")
-
-    cp.detect_taps = 1
-
-    # Main loop
-    while True:
-        current_time = time.monotonic()
-        volume = cp.switch
-
-        # Routine management - lazy instantiation
-        if routine != active_routine_number:
-            if current_routine_instance:
-                # Call cleanup method if available
-                if hasattr(current_routine_instance, 'cleanup'):
-                    current_routine_instance.cleanup()
-
-                memory_mgr.cleanup_before_routine_change()
-                del current_routine_instance
-
-                # Force garbage collection after deleting heavy routine
-                import gc
-                gc.collect()
-                print("[SYSTEM] Memory freed, available: %d bytes" % gc.mem_free())
-
-            interaction_mgr.setup_for_routine(routine)
-            current_routine_instance = create_routine_instance(
-                routine, name, _persist_this_run, college_spirit_enabled,
-                college, bluetooth_enabled, debug_bluetooth, debug_audio
-            )
-
-            if current_routine_instance:
-                active_routine_number = routine
-                print("✅ Loaded routine %d" % routine)
-            else:
-                print("❌ Failed to load routine %d" % routine)
-
-        # Interaction detection
-        interactions = interaction_mgr.check_interactions(routine, volume, cp.pixels)
-        handle_ufo_intelligence_learning(routine, current_routine_instance,
-                                         interactions)
-
-        # Button handling
-        routine, mode, last_button_a_time, last_button_b_time, button_config_changed = handle_button_interactions(
-            routine, mode, last_button_a_time, last_button_b_time,
-            button_debounce_delay, current_time
-        )
-
-        if button_config_changed:
-            config_changed = True
-            config_save_timer = current_time
-
-        # Configuration saving
-        if config_changed and (current_time - config_save_timer > 2.0):
-            config.update({
-                'routine': routine,
-                'mode': mode,
-                'name': name,
-                'college_spirit_enabled': college_spirit_enabled,
-                'college': college,
-                'ufo_persistent_memory': ufo_persistent_memory,
-                'college_chant_detection_enabled': college_chant_detection_enabled,
-                'bluetooth_enabled': bluetooth_enabled
-            })
-            config_mgr.save_config(config)
-            config_changed = False
-
-        # System maintenance
-        memory_mgr.periodic_cleanup()
-
-        # Execute routine
-        if current_routine_instance:
-            current_routine_instance.run(mode, volume)
+    """Main application loop - lightweight control."""
+    controller = LightweightController()
+    controller.run_forever()
 
 
 def create_routine_instance(routine, name, _persist_this_run, college_spirit_enabled,
@@ -203,19 +410,6 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
     """
     Create a routine instance based on routine number.
     Uses lazy imports to save memory by only loading needed routines.
-    
-    Args:
-        routine: Routine number (1-4)
-        name: Device name
-        _persist_this_run: Whether to enable persistent memory
-        college_spirit_enabled: Whether college spirit is enabled
-        college: College name
-        bluetooth_enabled: Whether Bluetooth is enabled in config
-        bt_debug: Bluetooth debug flag
-        audio_debug: Audio debug flag
-    
-    Returns:
-        routine instance or None
     """
     instance = None
 
@@ -231,16 +425,17 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
                 college_spirit_enabled=college_spirit_enabled,
                 college=college
             )
-            # Check if instance initialized properly using hasattr to avoid method dependency
+            # Check if instance initialized properly
             if hasattr(instance, 'ai_core') and hasattr(instance,
                                                         'behaviors') and hasattr(
-                instance, 'learning'):
+                    instance, 'learning'):
                 if instance.ai_core is None or instance.behaviors is None or instance.learning is None:
                     print(
                         "[SYSTEM] ❌ UFO Intelligence failed to initialize critical systems")
                     if hasattr(instance, 'cleanup'):
                         instance.cleanup()
                     return None
+
         elif routine == 2:
             print("[SYSTEM] Loading Intergalactic Cruising...")
             from intergalactic_cruising import IntergalacticCruising
@@ -251,9 +446,10 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
                                              'bluetooth') and instance.bluetooth:
                 print("[SYSTEM] 📱 Enabling Bluetooth control...")
                 instance.enable_bluetooth()
-                instance.enable_debug()  # This enables debug for both cruiser and bluetooth
+                if bt_debug:
+                    instance.enable_debug()
             else:
-                print("[SYSTEM] 🏃 High-performance mode (Bluetooth disabled)")
+                print("[SYSTEM] ⚡ High-performance mode (Bluetooth disabled)")
 
         elif routine == 3:
             print("[SYSTEM] Loading Meditate...")
@@ -261,35 +457,15 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
             instance = Meditate()
 
         elif routine == 4:
-            print("[SYSTEM] ===== Loading Dance Party =====")
+            print("[SYSTEM] Loading Dance Party...")
             try:
                 from dance_party import DanceParty
-                print("[SYSTEM] DanceParty import successful")
-
-                print("[SYSTEM] Creating DanceParty instance with:")
-                print("[SYSTEM]   name: %s" % name)
-                print("[SYSTEM]   bt_debug: %s" % bt_debug)
-                print("[SYSTEM]   audio_debug: %s" % audio_debug)
-
                 instance = DanceParty(name, bt_debug, audio_debug)
-                print("[SYSTEM] DanceParty instance created: %s" % str(instance))
 
-                # Check if instance has bluetooth attribute
-                print("[SYSTEM] Checking instance attributes...")
-                print(
-                    "[SYSTEM]   hasattr(instance, 'bluetooth'): %s" % hasattr(instance,
-                                                                              'bluetooth'))
-                if hasattr(instance, 'bluetooth'):
-                    print("[SYSTEM]   instance.bluetooth: %s" % str(instance.bluetooth))
-                    print("[SYSTEM]   instance.bluetooth is not None: %s" % (
-                                instance.bluetooth is not None))
-
-                print("[SYSTEM] bluetooth_enabled from config: %s" % bluetooth_enabled)
-
-                # Enable Bluetooth for Dance Party like we do for Intergalactic Cruising
+                # Enable Bluetooth for Dance Party if configured
                 if bluetooth_enabled and hasattr(instance,
                                                  'bluetooth') and instance.bluetooth:
-                    print("[SYSTEM] ===== Enabling Bluetooth for Dance Party =====")
+                    print("[SYSTEM] 📱 Enabling Bluetooth for Dance Party...")
                     success = instance.enable_bluetooth()
                     if success:
                         print("[SYSTEM] ✅ Dance Party Bluetooth enabled")
@@ -297,25 +473,16 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
                         print("[SYSTEM] ❌ Failed to enable Dance Party Bluetooth")
                 else:
                     print(
-                        "[SYSTEM] 🏃 Dance Party in standalone mode (Bluetooth disabled)")
-                    print("[SYSTEM] Bluetooth diagnostic:")
-                    if not bluetooth_enabled:
-                        print("[SYSTEM]   Reason: Bluetooth disabled in config")
-                    elif not hasattr(instance, 'bluetooth'):
-                        print("[SYSTEM]   Reason: No bluetooth attribute")
-                    elif not instance.bluetooth:
-                        print("[SYSTEM]   Reason: bluetooth attribute is None")
+                        "[SYSTEM] 🎵 Dance Party in standalone mode (Bluetooth disabled)")
 
             except Exception as e:
                 print("[SYSTEM] ❌ Error in Dance Party setup: %s" % str(e))
-                print("[SYSTEM] Error type: %s" % type(e).__name__)
                 instance = None
 
         return instance
 
     except MemoryError as e:
         print("[SYSTEM] ❌ Memory error loading routine %d: %s" % (routine, str(e)))
-        print("[SYSTEM] 💡 Try restarting or using a simpler routine")
         if instance and hasattr(instance, 'cleanup'):
             instance.cleanup()
         return None
@@ -324,72 +491,6 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
         if instance and hasattr(instance, 'cleanup'):
             instance.cleanup()
         return None
-
-
-def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_time,
-                               button_debounce_delay, current_time):
-    """
-    Handle button A and B interactions with debouncing.
-    
-    Returns:
-        tuple: (new_routine, new_mode, new_last_button_a_time, new_last_button_b_time, config_changed)
-    """
-    config_changed = False
-
-    # Handle button A: cycle through routines with debouncing
-    if cp.button_a and (current_time - last_button_a_time > button_debounce_delay):
-        routine = (routine % 4) + 1  # Cycle through routines 1-4
-        show_routine_feedback(routine)
-        last_button_a_time = current_time
-        config_changed = True
-
-        # Brief delay to show feedback, then clear
-        time.sleep(0.8)
-        cp.pixels.fill((0, 0, 0))
-        cp.pixels.show()
-
-    # Handle button B: cycle through color modes with debouncing
-    if cp.button_b and (current_time - last_button_b_time > button_debounce_delay):
-        mode = (mode % 4) + 1  # Cycle through modes 1-4
-        show_mode_feedback(mode)
-        last_button_b_time = current_time
-        config_changed = True
-
-        # Brief delay to show feedback, then clear
-        time.sleep(0.8)
-        cp.pixels.fill((0, 0, 0))
-        cp.pixels.show()
-
-    return routine, mode, last_button_a_time, last_button_b_time, config_changed
-
-
-def handle_ufo_intelligence_learning(routine, current_routine_instance, interactions):
-    """
-    Handle UFO Intelligence learning from interactions.
-
-    Args:
-        routine: Current routine number
-        current_routine_instance: The active routine instance
-        interactions: Dictionary of detected interactions
-    """
-    if routine != 1 or not current_routine_instance:
-        return
-
-    # Pass interactions to UFO Intelligence for learning
-    if interactions['tap'] or interactions['shake']:
-        current_routine_instance.last_interaction = time.monotonic()
-        if current_routine_instance.mood == "curious":
-            current_routine_instance.record_successful_attention()
-
-    if interactions['shake']:
-        current_routine_instance.energy_level = min(100,
-                                                    current_routine_instance.energy_level + 15)
-
-    # Handle light interactions for UFO Intelligence learning
-    if interactions.get('light_interaction', False):
-        print("[UFO AI] 💡 Light interaction detected via InteractionManager!")
-        current_routine_instance.last_interaction = time.monotonic()
-        # You could add specific light interaction learning here
 
 
 if __name__ == "__main__":
