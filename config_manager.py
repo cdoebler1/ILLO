@@ -22,10 +22,10 @@ class ConfigManager:
                 'routine': data['routine'],
                 'mode': data['mode'], 
                 'name': data['name'],
-                'college_spirit_enabled': data.get('college_spirit_enabled', True),
                 'college': data.get('college', 'none'),
-                'ufo_persistent_memory': data.get('ufo_persistent_memory', False),
+                'college_spirit_enabled': data.get('college_spirit_enabled', True),
                 'college_chant_detection_enabled': data.get('college_chant_detection_enabled', True),
+                'ufo_persistent_memory': data.get('ufo_persistent_memory', False),
                 'bluetooth_enabled': data.get('bluetooth_enabled', True)  # Default to enabled for compatibility
             }
         except Exception as e:
@@ -35,10 +35,10 @@ class ConfigManager:
                 'routine': 1,
                 'mode': 1,
                 'name': 'ILLO',
-                'college_spirit_enabled': True,
                 'college': 'none',
-                'ufo_persistent_memory': False,
+                'college_spirit_enabled': True,
                 'college_chant_detection_enabled': True,
+                'ufo_persistent_memory': False,
                 'bluetooth_enabled': True
             }
 
@@ -55,15 +55,25 @@ class ConfigManager:
                 'routine': config.get('routine', 1),
                 'mode': config.get('mode', 1),
                 'name': config.get('name', 'ILLO'),
-                'college_spirit_enabled': config.get('college_spirit_enabled', True),
                 'college': config.get('college', 'none'),
-                'ufo_persistent_memory': config.get('ufo_persistent_memory', False),
+                'college_spirit_enabled': config.get('college_spirit_enabled', True),
                 'college_chant_detection_enabled': config.get('college_chant_detection_enabled', True),
+                'ufo_persistent_memory': config.get('ufo_persistent_memory', False),
                 'bluetooth_enabled': config.get('bluetooth_enabled', True)
             }
             
             with open('config.json', 'w') as config_file:
-                json.dump(config_data, config_file)
+                # Manually format JSON with line breaks for CircuitPython compatibility
+                config_file.write('{\n')
+                config_file.write('  "routine": %d,\n' % config_data['routine'])
+                config_file.write('  "mode": %d,\n' % config_data['mode'])
+                config_file.write('  "name": "%s",\n' % config_data['name'])
+                config_file.write('  "college": "%s",\n' % config_data['college'])
+                config_file.write('  "college_spirit_enabled": %s,\n' % ('true' if config_data['college_spirit_enabled'] else 'false'))
+                config_file.write('  "college_chant_detection_enabled": %s,\n' % ('true' if config_data['college_chant_detection_enabled'] else 'false'))
+                config_file.write('  "ufo_persistent_memory": %s,\n' % ('true' if config_data['ufo_persistent_memory'] else 'false'))
+                config_file.write('  "bluetooth_enabled": %s\n' % ('true' if config_data['bluetooth_enabled'] else 'false'))
+                config_file.write('}\n')
             
             print("[CONFIG] ⚙️ Configuration saved: Routine %d, Mode %d, BT: %s" % 
                   (config_data['routine'], config_data['mode'], config_data['bluetooth_enabled']))

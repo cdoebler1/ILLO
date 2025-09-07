@@ -100,7 +100,8 @@ class LightweightController:
 
         cp.detect_taps = 1
 
-    def _fs_writable_check(self):
+    @staticmethod
+    def _fs_writable_check():
         """Return True if CIRCUITPY is writable, False if USB RO is active."""
         test_path = "._writetest.tmp"
         try:
@@ -133,20 +134,13 @@ class LightweightController:
         if button_a_pressed:
             new_routine = (self.routine % 4) + 1
             
-            # CRITICAL: Save IMMEDIATELY before changing routine
+            # CRITICAL: Save IMMEDIATELY before changing routine using ConfigManager
             try:
-                temp_config = {
-                    'routine': new_routine,
-                    'mode': self.mode,
-                    'name': self.name,
-                    'college_spirit_enabled': self.college_spirit_enabled,
-                    'college': self.college,
-                    'ufo_persistent_memory': self.ufo_persistent_memory,
-                    'college_chant_detection_enabled': self.college_chant_detection_enabled,
-                    'bluetooth_enabled': self.bluetooth_enabled
-                }
+                # Get current config and update routine
+                current_config = self._get_current_config()
+                current_config['routine'] = new_routine
             
-                save_success = self.config_mgr.save_config(temp_config)
+                save_success = self.config_mgr.save_config(current_config)
                 if save_success:
                     print("💾 EMERGENCY SAVE: Routine %d saved before switch" % new_routine)
                     self.routine = new_routine
@@ -173,11 +167,24 @@ class LightweightController:
             self.feedback_clear_time = now + 0.8
             self.showing_feedback = True
 
-    def check_volume(self, now):
+    def _get_current_config(self):
+        """Get current configuration state as a dictionary."""
+        return {
+            'routine': self.routine,
+            'mode': self.mode,
+            'name': self.name,
+            'college_spirit_enabled': self.college_spirit_enabled,
+            'college': self.college,
+            'ufo_persistent_memory': self.ufo_persistent_memory,
+            'college_chant_detection_enabled': self.college_chant_detection_enabled,
+            'bluetooth_enabled': self.bluetooth_enabled
+        }
+
+    def check_volume(self):
         """Update volume state from switch."""
         self.volume = cp.switch
 
-    def check_routine_switching(self, now):
+    def check_routine_switching(self):
         """Handle routine switching logic."""
         if self.switching_routine:
             return
@@ -257,7 +264,7 @@ class LightweightController:
                 print("[INTERACTIONS] Light interaction detected!")
             current_routine.last_interaction = now
 
-    def run_routine(self, now):
+    def run_routine(self):
         """Execute the current routine."""
         if not self.current_routine_instance:
             return
@@ -273,24 +280,17 @@ class LightweightController:
         if self.memory_mgr:
             self.memory_mgr.periodic_cleanup()
 
-        # Config saving with 2-second delay after changes
+        # Config saving with 2-second delay after changes using ConfigManager
         if self.config_changed and (now - self.config_save_timer > 2.0):
-            config = {
-                'routine': self.routine,
-                'mode': self.mode,
-                'name': self.name,
-                'college_spirit_enabled': self.college_spirit_enabled,
-                'college': self.college,
-                'ufo_persistent_memory': self.ufo_persistent_memory,
-                'college_chant_detection_enabled': self.college_chant_detection_enabled,
-                'bluetooth_enabled': self.bluetooth_enabled
-            }
+            current_config = self._get_current_config()
 
             try:
-                self.config_mgr.save_config(config)
-                self.config_changed = False
-                print("💾 Configuration saved (routine: %d, mode: %d)" % (self.routine,
-                                                                         self.mode))
+                save_success = self.config_mgr.save_config(current_config)
+                if save_success:
+                    self.config_changed = False
+                    print("💾 Configuration saved (routine: %d, mode: %d)" % (self.routine, self.mode))
+                else:
+                    print("❌ Config save failed")
             except Exception as e:
                 print("❌ Config save failed: %s" % str(e))
 
@@ -315,12 +315,12 @@ class LightweightController:
 
                 # Volume checking
                 if now_ms - self.last_times['volume'] >= VOLUME_CHECK_MS:
-                    self.check_volume(now)
+                    self.check_volume()
                     self.last_times['volume'] = now_ms
 
                 # Routine switching
                 if now_ms - self.last_times['routine'] >= ROUTINE_CHECK_MS:
-                    self.check_routine_switching(now)
+                    self.check_routine_switching()
                     self.last_times['routine'] = now_ms
 
                 # Interaction checking
@@ -329,7 +329,7 @@ class LightweightController:
                     self.last_times['interaction'] = now_ms
 
                 # Always run the current routine (this is the most important)
-                self.run_routine(now)
+                self.run_routine()
 
                 # Maintenance (lowest frequency)
                 if now_ms - self.last_times['maintenance'] >= MAINTENANCE_MS:
