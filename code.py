@@ -21,6 +21,71 @@ debug_memory = True  # Enable memory usage monitoring
 debug_interactions = False  # Enable interaction debug messages
 
 
+class TaskScheduler:
+    """
+    Simple task scheduler for managing periodic operations.
+    Optimizes performance by controlling when different operations run.
+    """
+    
+    def __init__(self):
+        """Initialize the task scheduler."""
+        self.tasks = {}
+        self.last_run = {}
+        
+    def add_task(self, name, interval, callback, enabled=True):
+        """
+        Add a scheduled task.
+        
+        Args:
+            name: Task identifier
+            interval: Seconds between executions
+            callback: Function to call
+            enabled: Whether task is initially enabled
+        """
+        self.tasks[name] = {
+            'interval': interval,
+            'callback': callback,
+            'enabled': enabled
+        }
+        self.last_run[name] = 0
+        
+    def enable_task(self, name):
+        """Enable a scheduled task."""
+        if name in self.tasks:
+            self.tasks[name]['enabled'] = True
+            
+    def disable_task(self, name):
+        """Disable a scheduled task."""
+        if name in self.tasks:
+            self.tasks[name]['enabled'] = False
+            
+    def run_due_tasks(self, current_time):
+        """
+        Run all tasks that are due to execute.
+        
+        Args:
+            current_time: Current monotonic time
+            
+        Returns:
+            List of task names that were executed
+        """
+        executed_tasks = []
+        
+        for name, task in self.tasks.items():
+            if not task['enabled']:
+                continue
+                
+            if current_time - self.last_run[name] >= task['interval']:
+                try:
+                    task['callback']()
+                    self.last_run[name] = current_time
+                    executed_tasks.append(name)
+                except Exception as e:
+                    print("[SCHEDULER] ❌ Task %s failed: %s" % (name, str(e)))
+                    
+        return executed_tasks
+
+
 def _fs_writable_check():
     """Return True if CIRCUITPY is writable, False if USB RO is active."""
     test_path = "._writetest.tmp"
@@ -80,12 +145,15 @@ def show_mode_feedback(mode):
 
 
 def main():
-    """Main application loop."""
+    """Main application loop with task scheduling."""
     # Initialize managers
     config_mgr = ConfigManager()
     config = config_mgr.load_config()
     memory_mgr = MemoryManager(enable_debug=debug_memory)
     interaction_mgr = InteractionManager(enable_debug=debug_interactions)
+    
+    # Initialize scheduler
+    scheduler = TaskScheduler()
 
     # Extract configuration values with safe defaults
     routine = config.get('routine', 1)
@@ -111,9 +179,43 @@ def main():
     config_save_timer = 0
     config_changed = False
 
+    # Scheduled task functions
+    def memory_cleanup_task():
+        """Periodic memory cleanup task."""
+        memory_mgr.periodic_cleanup()
+        
+    def config_save_task():
+        """Save configuration if changes are pending."""
+        nonlocal config_changed
+        if config_changed:
+            config.update({
+                'routine': routine,
+                'mode': mode,
+                'name': name,
+                'college_spirit_enabled': college_spirit_enabled,
+                'college': college,
+                'ufo_persistent_memory': ufo_persistent_memory,
+                'college_chant_detection_enabled': college_chant_detection_enabled,
+                'bluetooth_enabled': bluetooth_enabled
+            })
+            config_mgr.save_config(config)
+            config_changed = False
+            print("[SCHEDULER] 💾 Config auto-saved")
+    
+    def system_status_task():
+        """Periodic system status reporting."""
+        import gc
+        print("[SCHEDULER] 📊 Memory: %d bytes free, Routine: %d, Mode: %d" % 
+              (gc.mem_free(), routine, mode))
+    
+    # Setup scheduled tasks
+    scheduler.add_task('memory_cleanup', 30.0, memory_cleanup_task)  # Every 30 seconds
+    scheduler.add_task('config_save', 3.0, config_save_task)         # Every 3 seconds
+    scheduler.add_task('system_status', 60.0, system_status_task, enabled=debug_memory)  # Every minute if debug enabled
+
     # Display startup status
     actual_volume = cp.switch
-    print("🛸 UFO System Initialized")
+    print("🛸 UFO System Initialized with Task Scheduler")
     print("📋 Current: Routine %d, Mode %d, Sound %s" % (routine, mode,
                                                         "ON" if actual_volume else "OFF"))
 
@@ -128,10 +230,19 @@ def main():
 
     cp.detect_taps = 1
 
-    # Main loop
+    # Performance monitoring
+    loop_start_time = time.monotonic()
+    loop_count = 0
+    performance_report_interval = 100  # Report every 100 loops
+
+    # Main loop with scheduling
     while True:
         current_time = time.monotonic()
         volume = cp.switch
+        loop_count += 1
+
+        # Run scheduled tasks
+        executed_tasks = scheduler.run_due_tasks(current_time)
 
         # Routine management - lazy instantiation
         if routine != active_routine_number:
@@ -157,45 +268,45 @@ def main():
             if current_routine_instance:
                 active_routine_number = routine
                 print("✅ Loaded routine %d" % routine)
+                
+                # Adjust task scheduling based on routine
+                if routine == 1:  # UFO Intelligence - more frequent cleanup
+                    scheduler.tasks['memory_cleanup']['interval'] = 20.0
+                else:  # Other routines - standard cleanup
+                    scheduler.tasks['memory_cleanup']['interval'] = 30.0
             else:
                 print("❌ Failed to load routine %d" % routine)
 
-        # Interaction detection
+        # Interaction detection (high priority - run every loop)
         interactions = interaction_mgr.check_interactions(routine, volume, cp.pixels)
         handle_ufo_intelligence_learning(routine, current_routine_instance,
                                          interactions)
 
-        # Button handling
-        routine, mode, last_button_a_time, last_button_b_time, button_config_changed = handle_button_interactions(
+        # Button handling (high priority - run every loop)
+        new_routine, new_mode, last_button_a_time, last_button_b_time, button_config_changed = handle_button_interactions(
             routine, mode, last_button_a_time, last_button_b_time,
             button_debounce_delay, current_time
         )
 
+        # Update variables if changed
+        if new_routine != routine or new_mode != mode:
+            routine, mode = new_routine, new_mode
+            
         if button_config_changed:
             config_changed = True
             config_save_timer = current_time
 
-        # Configuration saving
-        if config_changed and (current_time - config_save_timer > 2.0):
-            config.update({
-                'routine': routine,
-                'mode': mode,
-                'name': name,
-                'college_spirit_enabled': college_spirit_enabled,
-                'college': college,
-                'ufo_persistent_memory': ufo_persistent_memory,
-                'college_chant_detection_enabled': college_chant_detection_enabled,
-                'bluetooth_enabled': bluetooth_enabled
-            })
-            config_mgr.save_config(config)
-            config_changed = False
-
-        # System maintenance
-        memory_mgr.periodic_cleanup()
-
-        # Execute routine
+        # Execute routine (high priority - run every loop)
         if current_routine_instance:
             current_routine_instance.run(mode, volume)
+
+        # Performance reporting (low priority - scheduled)
+        if debug_memory and loop_count % performance_report_interval == 0:
+            elapsed = current_time - loop_start_time
+            if elapsed > 0:
+                loops_per_second = performance_report_interval / elapsed
+                print("[SCHEDULER] 🚀 Performance: %.1f loops/sec" % loops_per_second)
+            loop_start_time = current_time
 
 
 def create_routine_instance(routine, name, _persist_this_run, college_spirit_enabled,
