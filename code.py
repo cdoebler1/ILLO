@@ -288,9 +288,13 @@ def main():
             button_debounce_delay, current_time
         )
 
-        # Update variables if changed
-        if new_routine != routine or new_mode != mode:
-            routine, mode = new_routine, new_mode
+        # Update variables if changed (Button A will reboot, so this mainly handles Button B)
+        if new_routine != routine:
+            # This should rarely execute since Button A reboots
+            routine = new_routine
+            
+        if new_mode != mode:
+            mode = new_mode
             
         if button_config_changed:
             config_changed = True
@@ -441,25 +445,66 @@ def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_
                                button_debounce_delay, current_time):
     """
     Handle button A and B interactions with debouncing.
+    Button A now saves config and reboots for clean routine switching.
     
     Returns:
         tuple: (new_routine, new_mode, new_last_button_a_time, new_last_button_b_time, config_changed)
     """
     config_changed = False
 
-    # Handle button A: cycle through routines with debouncing
+    # Handle button A: cycle through routines with immediate save and reboot
     if cp.button_a and (current_time - last_button_a_time > button_debounce_delay):
-        routine = (routine % 4) + 1  # Cycle through routines 1-4
-        show_routine_feedback(routine)
+        new_routine = (routine % 4) + 1  # Cycle through routines 1-4
+        
+        # Show feedback for the new routine selection
+        show_routine_feedback(new_routine)
+        print("🔄 Switching to routine %d - saving and rebooting..." % new_routine)
+        
+        # Immediately save the new routine to config
+        try:
+            from config_manager import ConfigManager
+            config_mgr = ConfigManager()
+            config = config_mgr.load_config()
+            
+            # Update routine in config
+            config['routine'] = new_routine
+            success = config_mgr.save_config(config)
+            
+            if success:
+                print("💾 Routine %d saved to config successfully" % new_routine)
+                
+                # Brief pause to show feedback and ensure save completes
+                time.sleep(1.5)
+                
+                # Clear pixels before reboot
+                cp.pixels.fill((0, 0, 0))
+                cp.pixels.show()
+                
+                print("🚀 Rebooting for clean routine switch...")
+                time.sleep(0.5)  # Brief pause for user to see message
+                
+                # Perform soft reset
+                import microcontroller
+                microcontroller.reset()
+                
+            else:
+                print("❌ Failed to save routine, continuing without reboot")
+                config_changed = True  # Fall back to normal config save behavior
+                
+        except Exception as e:
+            print("❌ Error during routine save: %s" % str(e))
+            print("Continuing without reboot...")
+            config_changed = True  # Fall back to normal behavior
+            
         last_button_a_time = current_time
-        config_changed = True
-
-        # Brief delay to show feedback, then clear
+        
+        # If we reach here, the save failed and we're falling back to normal behavior
         time.sleep(0.8)
         cp.pixels.fill((0, 0, 0))
         cp.pixels.show()
+        routine = new_routine
 
-    # Handle button B: cycle through color modes with debouncing
+    # Handle button B: cycle through color modes with debouncing (unchanged)
     if cp.button_b and (current_time - last_button_b_time > button_debounce_delay):
         mode = (mode % 4) + 1  # Cycle through modes 1-4
         show_mode_feedback(mode)
