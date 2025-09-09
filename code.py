@@ -366,7 +366,7 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
                                              'bluetooth') and instance.bluetooth:
                 print("[SYSTEM] 📱 Enabling Bluetooth control...")
                 instance.enable_bluetooth()
-                instance.enable_debug()  # This enables debug for both cruiser and bluetooth
+                # Remove this line: instance.enable_debug()  # Don't auto-enable debug
             else:
                 print("[SYSTEM] 🏃 High-performance mode (Bluetooth disabled)")
 
