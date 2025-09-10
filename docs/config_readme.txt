@@ -55,11 +55,13 @@ debug_audio (boolean): Enable/disable audio processing debug logging
 
 Hardware Controls:
 - Button A: Cycle through operating modes (1-4)
-- Button B: Cycle through color themes (1-4)
+- Button B: Context-sensitive control
+  * Routines 1, 2, 4: Cycle through color themes (1-4)
+  * Routine 3 (Meditate): Cycle through breathing patterns (1-4)
 - Slide Switch: Sound on/off control + boot-time storage configuration
-- Touch/Tap: Interact with AI system and trigger responses  
-- Shake: Generate turbulence effects and energy boosts
-- Light Changes: Wave hand over or approach ILLO for interaction responses
+- Touch/Tap: Interact with AI system and trigger responses (disabled in Meditate)
+- Shake: Generate turbulence effects and energy boosts (disabled in Meditate)
+- Light Changes: Wave hand over or approach ILLO for interaction responses (disabled in Meditate)
 
 Boot-Time Switch Behavior:
 - Switch LEFT + USB: Sound on, testing mode (read/write storage via USB)
@@ -109,6 +111,22 @@ Performance Notes:
 - Light synchronization maintains smooth 60fps target
 - Bluetooth features disabled by default for memory conservation
 - Light sensor monitoring adds minimal processing overhead
+
+Meditation Configuration:
+meditate_breath_pattern (integer 1-4): Selected breathing technique
+  1 = 4-7-8 Breathing (4.8s inhale, 2.4s hold, 4.8s exhale; default)
+  2 = Box Breathing (4s inhale, 4s hold, 4s exhale, 4s hold)
+  3 = Triangle Breathing (4s inhale, 4s hold, 4s exhale)
+  4 = Deep Relaxation (6s inhale, 2s hold, 8s exhale)
+  Note: Button B cycles through patterns when in Meditation mode
+
+meditate_adaptive_timing (boolean): Enable light-sensor adaptive timing
+  true = Breathing speed adjusts to ambient light conditions (default)
+  false = Fixed timing regardless of lighting
+
+meditate_ultra_dim (boolean): Enable ultra-low brightness mode
+  true = Meditation uses very dim LEDs for minimal distraction (default)
+  false = Normal brightness levels
 
 Environmental & Manufacturing:
 - Enclosure 3D printed from recycled PETG plastic

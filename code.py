@@ -162,9 +162,11 @@ def main():
     college_spirit_enabled = config.get('college_spirit_enabled', False)
     college = config.get('college', '')
     ufo_persistent_memory = config.get('ufo_persistent_memory', False)
-    college_chant_detection_enabled = config.get('college_chant_detection_enabled',
-                                                 False)
+    college_chant_detection_enabled = config.get('college_chant_detection_enabled', False)
     bluetooth_enabled = config.get('bluetooth_enabled', True)
+    
+    # Meditation configuration - only extracted if needed to avoid memory usage
+    # These will be loaded directly by the meditation routine when needed
 
     # System initialization
     _fs_is_writable = _fs_writable_check()
@@ -196,7 +198,9 @@ def main():
                 'college': college,
                 'ufo_persistent_memory': ufo_persistent_memory,
                 'college_chant_detection_enabled': college_chant_detection_enabled,
-                'bluetooth_enabled': bluetooth_enabled
+                'bluetooth_enabled': bluetooth_enabled,
+                # Meditation settings are handled directly by the meditation routine
+                # and don't need to be updated here unless we add UI controls for them
             })
             config_mgr.save_config(config)
             config_changed = False
@@ -285,7 +289,7 @@ def main():
         # Button handling (high priority - run every loop)
         new_routine, new_mode, last_button_a_time, last_button_b_time, button_config_changed = handle_button_interactions(
             routine, mode, last_button_a_time, last_button_b_time,
-            button_debounce_delay, current_time
+            button_debounce_delay, current_time, current_routine_instance
         )
 
         # Update variables if changed (Button A will reboot, so this mainly handles Button B)
@@ -441,12 +445,45 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
         return None
 
 
+def handle_meditation_pattern_change():
+    """Handle Button B press during meditation to change breathing patterns."""
+    try:
+        # Load current config
+        from config_manager import ConfigManager
+        config_mgr = ConfigManager()
+        config = config_mgr.load_config()
+
+        # Get current pattern and cycle to next
+        current_pattern = config.get('meditate_breath_pattern', 1)
+        new_pattern = (current_pattern % 4) + 1
+
+        # Update config
+        config['meditate_breath_pattern'] = new_pattern
+        success = config_mgr.save_config(config)
+
+        # Show visual feedback for breathing pattern change
+        show_breathing_pattern_feedback(new_pattern)
+
+        if success:
+            print("🫁 Breathing pattern changed to %d and saved" % new_pattern)
+        else:
+            print("🫁 Breathing pattern changed to %d (save failed)" % new_pattern)
+
+        return new_pattern
+
+    except Exception as e:
+        print("❌ Error changing meditation pattern: %s" % str(e))
+        return None
+
+
 def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_time,
-                               button_debounce_delay, current_time):
+                               button_debounce_delay, current_time,
+                               current_routine_instance):
     """
     Handle button A and B interactions with debouncing.
     Button A now saves config and reboots for clean routine switching.
-    
+    Button B is context-aware: breathing patterns in Meditation, color modes elsewhere.
+
     Returns:
         tuple: (new_routine, new_mode, new_last_button_a_time, new_last_button_b_time, config_changed)
     """
@@ -455,68 +492,134 @@ def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_
     # Handle button A: cycle through routines with immediate save and reboot
     if cp.button_a and (current_time - last_button_a_time > button_debounce_delay):
         new_routine = (routine % 4) + 1  # Cycle through routines 1-4
-        
+
         # Show feedback for the new routine selection
         show_routine_feedback(new_routine)
         print("🔄 Switching to routine %d - saving and rebooting..." % new_routine)
-        
+
         # Immediately save the new routine to config
         try:
             from config_manager import ConfigManager
             config_mgr = ConfigManager()
             config = config_mgr.load_config()
-            
+
             # Update routine in config
             config['routine'] = new_routine
             success = config_mgr.save_config(config)
-            
+
             if success:
                 print("💾 Routine %d saved to config successfully" % new_routine)
-                
+
                 # Brief pause to show feedback and ensure save completes
                 time.sleep(1.5)
-                
+
                 # Clear pixels before reboot
                 cp.pixels.fill((0, 0, 0))
                 cp.pixels.show()
-                
+
                 print("🚀 Rebooting for clean routine switch...")
                 time.sleep(0.5)  # Brief pause for user to see message
-                
+
                 # Perform soft reset
                 import microcontroller
                 microcontroller.reset()
-                
+
             else:
                 print("❌ Failed to save routine, continuing without reboot")
                 config_changed = True  # Fall back to normal config save behavior
-                
+
         except Exception as e:
             print("❌ Error during routine save: %s" % str(e))
             print("Continuing without reboot...")
             config_changed = True  # Fall back to normal behavior
-            
+
         last_button_a_time = current_time
-        
+
         # If we reach here, the save failed and we're falling back to normal behavior
         time.sleep(0.8)
         cp.pixels.fill((0, 0, 0))
         cp.pixels.show()
         routine = new_routine
 
-    # Handle button B: cycle through color modes with debouncing (unchanged)
+    # Handle button B: context-aware behavior based on current routine
     if cp.button_b and (current_time - last_button_b_time > button_debounce_delay):
-        mode = (mode % 4) + 1  # Cycle through modes 1-4
-        show_mode_feedback(mode)
-        last_button_b_time = current_time
-        config_changed = True
 
-        # Brief delay to show feedback, then clear
-        time.sleep(0.8)
-        cp.pixels.fill((0, 0, 0))
-        cp.pixels.show()
+        if routine == 3:  # Meditation mode - change breathing patterns
+            new_pattern = handle_meditation_pattern_change()
+
+            # Tell the meditation routine about the change directly
+            if new_pattern and current_routine_instance and hasattr(
+                    current_routine_instance, 'update_pattern'):
+                current_routine_instance.update_pattern(new_pattern)
+
+        else:  # All other routines - change color modes
+            mode = (mode % 4) + 1  # Cycle through modes 1-4
+            show_mode_feedback(mode)
+            config_changed = True
+
+            # Brief delay to show feedback, then clear
+            time.sleep(0.8)
+            cp.pixels.fill((0, 0, 0))
+            cp.pixels.show()
+
+        last_button_b_time = current_time
 
     return routine, mode, last_button_a_time, last_button_b_time, config_changed
+
+
+def show_breathing_pattern_feedback(pattern):
+    """Display visual feedback for breathing pattern selection."""
+    cp.pixels.fill((0, 0, 0))  # Clear all pixels
+
+    # Define breathing pattern colors and names
+    pattern_info = {
+        1: {"color": (0, 150, 255), "name": "4-7-8 Breathing"},  # Soft blue
+        2: {"color": (100, 200, 100), "name": "Box Breathing"},  # Soft green
+        3: {"color": (200, 100, 200), "name": "Triangle Breathing"},  # Soft purple
+        4: {"color": (255, 150, 0), "name": "Deep Relaxation"}  # Soft orange
+    }
+
+    info = pattern_info.get(pattern, {"color": (255, 255, 255), "name": "Unknown"})
+
+    # Show breathing pattern with unique visual - expand from center
+    center_pixels = [4, 5]
+    for pos in center_pixels:
+        cp.pixels[pos] = info["color"]
+
+    # Add pattern-specific visual indicators
+    if pattern >= 2:
+        ring1_pixels = [3, 6]
+        for pos in ring1_pixels:
+            cp.pixels[pos] = tuple(int(c * 0.6) for c in info["color"])
+
+    if pattern >= 3:
+        ring2_pixels = [2, 7]
+        for pos in ring2_pixels:
+            cp.pixels[pos] = tuple(int(c * 0.4) for c in info["color"])
+
+    if pattern == 4:
+        ring3_pixels = [1, 8, 0, 9]
+        for pos in ring3_pixels:
+            cp.pixels[pos] = tuple(int(c * 0.2) for c in info["color"])
+
+    cp.pixels.show()
+    print("🧘 Pattern %d: %s" % (pattern, info["name"]))
+
+    # Hold the pattern display longer for meditation feedback
+    time.sleep(1.2)
+
+    # Gentle fade out instead of abrupt clear
+    for fade_step in range(10):
+        for i in range(10):
+            current_color = cp.pixels[i]
+            if current_color != (0, 0, 0):
+                faded_color = tuple(int(c * 0.8) for c in current_color)
+                cp.pixels[i] = faded_color
+        cp.pixels.show()
+        time.sleep(0.1)
+
+    cp.pixels.fill((0, 0, 0))
+    cp.pixels.show()
 
 
 def handle_ufo_intelligence_learning(routine, current_routine_instance, interactions):
