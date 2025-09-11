@@ -17,73 +17,38 @@ class DanceParty(BaseRoutine):
         self.last_update = time.monotonic()
         self.rotation_offset = 0
 
-        # Debug flag and counter like Intergalactic Cruising
+        # Debug flag and counter
         self.debug = debug_bluetooth
         self.debug_counter = 0
         self._last_bt_mode = None
 
-        # Bluetooth initialization state tracking
-        self._bluetooth_init_attempted = False
-        self._bluetooth_init_success = False
+        # Simplified - no Bluetooth initialization for focus mode
         self.bluetooth = None
         self.bluetooth_enabled = False
 
-        # Multi-UFO dance synchronization
-        self.is_leader = True  # Will be determined by Bluetooth role
-        self.follower_connections = []  # Track connected followers
-        self.sync_commands = []  # Queue for sending sync commands to followers
-
-        # Beat detection parameters
+        # Beat detection parameters - more sensitive for dance
         self.last_beat_time = 0
-        self.beat_pattern_state = 0  # For synchronized patterns
-        self.energy_threshold = 800
+        self.beat_pattern_state = 0
+        self.energy_threshold = 600  # Lowered from 800 for more sensitivity
 
-        # Dance-specific Bluetooth commands for leader-follower sync
-        self.pending_beat_sync = False
-        self.last_sync_command_time = 0
-
+        # Dance timing
         self.last_pattern_update = time.monotonic()
 
-        print("[DANCE] 🎵 Dance Party initializing...")
-        print("[DANCE] Device name parameter: %s" % device_name)
-        print("[DANCE] Debug BT: %s, Debug Audio: %s" % (debug_bluetooth, debug_audio))
+        # Multi-UFO sync state
+        self.is_leader = False  # Default to follower mode
+        self.pending_beat_sync = False
 
-        # Read configuration for Bluetooth setup
-        print("[DANCE] Loading configuration...")
-        device_name, bluetooth_config_enabled = self._load_configuration()
-        print("[DANCE] Config loaded - Name: %s, BT enabled: %s" % (device_name, bluetooth_config_enabled))
-        
-        # Initialize Bluetooth with robust error recovery like Intergalactic Cruising
-        print("[DANCE] Starting Bluetooth initialization...")
-        self._initialize_bluetooth(device_name, bluetooth_config_enabled)
-        print("[DANCE] Bluetooth initialization complete")
-        print("[DANCE] BT attempted: %s, BT success: %s" % (self._bluetooth_init_attempted, self._bluetooth_init_success))
-
-        print("[DANCE] 🎵 Dance Party initialized - Multi-UFO Sync Ready")
-        print("[DANCE] Final device name: %s" % device_name)
-
-    def _load_configuration(self):
-        """Load configuration with proper error handling."""
-        print("[DANCE] _load_configuration() called")
-        try:
-            from config_manager import ConfigManager
-            config_mgr = ConfigManager()
-            config = config_mgr.load_config()
-            device_name = config.get('name', 'UFO_DANCER')
-            bluetooth_config_enabled = config.get('bluetooth_enabled', True)
-            print("[DANCE] Config values - name: %s, bt_enabled: %s" % (device_name, bluetooth_config_enabled))
-            return device_name, bluetooth_config_enabled
-        except Exception as e:
-            print("[DANCE] Config read error: %s, using defaults" % str(e))
-            return 'UFO_DANCER', True
+        print("[DANCE] 🎵 Dance Party initialized - Beat Detection Mode")
+        print("[DANCE] Bluetooth: Disabled (Focus Mode)")
 
     def _initialize_bluetooth(self, device_name, bluetooth_config_enabled):
         """Initialize Bluetooth with robust error handling like Intergalactic Cruising."""
         print("[DANCE] _initialize_bluetooth() called")
-        print("[DANCE] Parameters - device_name: %s, config_enabled: %s" % (device_name, bluetooth_config_enabled))
-        
+        print("[DANCE] Parameters - device_name: %s, config_enabled: %s" % (device_name,
+                                                                            bluetooth_config_enabled))
+
         self._bluetooth_init_attempted = True
-        
+
         if not bluetooth_config_enabled:
             self.bluetooth = None
             print("[DANCE] Bluetooth disabled in config - standalone mode")
@@ -95,44 +60,48 @@ class DanceParty(BaseRoutine):
             print("[DANCE] Importing BluefruitController...")
             from bluetooth_controller import BluefruitController
             print("[DANCE] BluefruitController imported successfully")
-            
+
             # Initialize Bluetooth controller - SIMPLIFIED LIKE INTERGALACTIC CRUISING
             print("[DANCE] Creating BluefruitController instance...")
             self.bluetooth = BluefruitController(debug=self.debug_bluetooth)
             print("[DANCE] BluefruitController created: %s" % str(self.bluetooth))
-            
+
             # Simple validation - just check if we have a BLE radio like Intergalactic Cruising
             if not self.bluetooth or not self.bluetooth.ble:
                 print("[DANCE] ❌ Bluetooth controller failed to initialize")
                 self.bluetooth = None
                 return
-                
+
             print("[DANCE] ✅ Bluetooth controller validation passed")
-            
+
             # Set device name for dance party - SIMPLIFIED
             print("[DANCE] Setting device name...")
             final_name = device_name + "_DANCE"
             try:
                 print("[DANCE] Setting BLE name to: %s" % final_name)
                 self.bluetooth.ble.name = final_name
-                
+
                 # Set advertisement name - but don't fail if this doesn't work
-                if hasattr(self.bluetooth, 'advertisement') and self.bluetooth.advertisement:
+                if hasattr(self.bluetooth,
+                           'advertisement') and self.bluetooth.advertisement:
                     print("[DANCE] Setting advertisement name to: %s" % final_name)
                     self.bluetooth.advertisement.complete_name = final_name
                     print("[DANCE] ✅ Set Bluetooth name to: %s" % final_name)
                 else:
-                    print("[DANCE] ⚠️ No advertisement object found, using default name")
+                    print(
+                        "[DANCE] ⚠️ No advertisement object found, using default name")
             except Exception as name_error:
                 print("[DANCE] ⚠️ Could not set device name: %s" % str(name_error))
                 print("[DANCE] ⚠️ Continuing with default name...")
-            
+
             print("[DANCE] Bluetooth initialization successful!")
             self._bluetooth_init_success = True
             print("[DANCE] 📱 Bluetooth available for multi-UFO sync")
-            
+
         except ImportError as ie:
-            print("[DANCE] ❌ Import error - Bluetooth controller not available: %s" % str(ie))
+            print(
+                "[DANCE] ❌ Import error - Bluetooth controller not available: %s" % str(
+                    ie))
             self.bluetooth = None
         except Exception as e:
             print("[DANCE] ❌ Bluetooth initialization failed: %s" % str(e))
@@ -143,14 +112,14 @@ class DanceParty(BaseRoutine):
         """Enable Bluetooth functionality."""
         print("[DANCE] enable_bluetooth() called")
         print("[DANCE] is_bluetooth_available(): %s" % self.is_bluetooth_available())
-        
+
         if not self.is_bluetooth_available():
             print("[DANCE] ❌ Bluetooth not available, cannot enable")
             return False
-            
+
         self.bluetooth_enabled = True
         print("[DANCE] bluetooth_enabled set to True")
-        
+
         try:
             print("[DANCE] Starting advertising...")
             if self.bluetooth.start_advertising():
@@ -172,8 +141,8 @@ class DanceParty(BaseRoutine):
                 self.bluetooth.ble is not None)
 
     def run(self, mode, volume):
-        """Run the multi-UFO dance party with leader-follower synchronization."""
-        # Determine effective mode (could be overridden by Bluetooth)
+        """Run the dance party with full audio visualization and environmental dimming."""
+        # Determine effective mode (could be overridden by Bluetooth if enabled)
         effective_mode = mode
 
         # Increment debug counter
@@ -181,22 +150,17 @@ class DanceParty(BaseRoutine):
 
         # Basic run loop debug - every 100 cycles
         if self.debug_counter % 100 == 0:
-            print("[DANCE] 🔄 Run loop cycle %d (bluetooth_enabled: %s)" % (self.debug_counter, self.bluetooth_enabled))
+            print("[DANCE] 🔄 Run loop cycle %d (bluetooth_enabled: %s)" % (
+                self.debug_counter, self.bluetooth_enabled))
 
         # Force garbage collection periodically to manage memory
         if self.debug_counter % 100 == 0:
             gc.collect()
 
-        # Periodic advertising check (every 200 cycles = ~10 seconds for faster debugging)
-        if self.debug_counter % 200 == 0 and self.bluetooth_enabled:
-            print("[DANCE] 🔍 Periodic advertising check (cycle %d):" % self.debug_counter)
-            self.check_advertising_status()
-
-        # Manage Bluetooth if available and enabled
+        # Only manage Bluetooth if explicitly enabled (skip when disabled for focus)
         if self.bluetooth_enabled and self.is_bluetooth_available():
             try:
                 self._manage_bluetooth_interaction()
-
                 # Check for mode override from Bluetooth
                 bt_mode = self.bluetooth.get_mode_override()
                 if bt_mode is not None:
@@ -206,65 +170,43 @@ class DanceParty(BaseRoutine):
                             print(
                                 "[DANCE] Bluetooth mode override changed: %d" % effective_mode)
                         self._last_bt_mode = bt_mode
-
             except Exception as bt_error:
-                print("[DANCE] ❌ Bluetooth management error: %s" % str(bt_error))  # Always show BT errors
+                print("[DANCE] ❌ Bluetooth management error: %s" % str(bt_error))
 
-        # Core dance processing with synchronization
+        # Core dance processing - full audio visualization like Intergalactic Cruising
         try:
-            self._process_synchronized_dance(effective_mode, volume)
+            self._process_beat_focused_dance(effective_mode, volume)
         except Exception as e:
             print("[DANCE] ❌ Dance processing error: %s" % str(e))
 
     def _manage_bluetooth_interaction(self):
-        """Manage Bluetooth connections and synchronization commands."""
-        # Connection management
-        old_connected = self.bluetooth.is_connected()
-        self.bluetooth.manage_advertising()
-        self.bluetooth.check_connection()
-        new_connected = self.bluetooth.is_connected()
+        """Manage Bluetooth connections - simplified for focus mode."""
+        # Since we're in focus mode, just skip all Bluetooth management
+        if not self.bluetooth_enabled or not self.is_bluetooth_available():
+            return
 
-        # Handle connection state changes
-        if old_connected != new_connected:
-            if old_connected and not new_connected:
-                self.bluetooth.handle_disconnection()
-
-        # Process commands if connected
-        if new_connected:
-            self.bluetooth.process_commands()
-
-            # Check for dance-specific sync commands
-            self._process_dance_sync_commands()
-
-    def _process_dance_sync_commands(self):
-        """Process dance synchronization commands between leader and followers."""
-        current_time = time.monotonic()
-
-        # Check for incoming sync commands from leader (if this is a follower)
-        if hasattr(self.bluetooth, 'connection') and self.bluetooth.connection:
-            # Add custom dance sync command processing here
-            # For now, we'll extend the existing bluetooth controller commands
-            pass
-
-        # Send sync commands to followers (if this is a leader and beat detected)
-        if self.is_leader and self.pending_beat_sync:
-            if current_time - self.last_sync_command_time > 0.1:  # Prevent spam
-                self._send_beat_sync_to_followers()
-                self.pending_beat_sync = False
-                self.last_sync_command_time = current_time
-
-    def _send_beat_sync_to_followers(self):
-        """Send beat synchronization command to all followers."""
+        # Only basic connection management if Bluetooth is somehow enabled
         try:
-            if self.bluetooth.connection and self.bluetooth.uart_service:
-                sync_msg = "DANCE_BEAT:%d:%d\n" % (int(time.monotonic() * 1000),
-                                                   self.beat_pattern_state)
-                self.bluetooth.uart_service.write(sync_msg.encode('utf-8'))
-                if self.debug:
-                    print("[DANCE] 📡 Beat sync sent to followers")
-        except Exception as e:
-            if self.debug:
-                print("[DANCE] Failed to send beat sync: %s" % str(e))
+            old_connected = self.bluetooth.is_connected()
+            self.bluetooth.manage_advertising()
+            self.bluetooth.check_connection()
+            new_connected = self.bluetooth.is_connected()
+
+            # Handle connection state changes
+            if old_connected != new_connected:
+                if old_connected and not new_connected:
+                    self.bluetooth.handle_disconnection()
+
+            # Process commands if connected
+            if new_connected:
+                self.bluetooth.process_commands()
+
+                # Check for dance-specific sync commands - REMOVED
+                # Multi-UFO sync features planned for future builds
+                pass
+
+        except Exception as bt_error:
+            print("[DANCE] ❌ Bluetooth management error: %s" % str(bt_error))
 
     def _process_synchronized_dance(self, effective_mode, volume):
         """Process dance with audio analysis and multi-UFO synchronization."""
@@ -290,7 +232,7 @@ class DanceParty(BaseRoutine):
             if self.is_leader and beat_detected and not manual_beat:
                 self.pending_beat_sync = True
                 self.beat_pattern_state = (
-                                                      self.beat_pattern_state + 1) % 8  # 8 beat cycle
+                                                  self.beat_pattern_state + 1) % 8  # 8 beat cycle
 
             self._update_dance_visualization(deltas, color_func, beat_detected, volume)
 
@@ -361,8 +303,7 @@ class DanceParty(BaseRoutine):
 
         if beat_detected:
             # Beat response - synchronized flash across all UFOs
-            self._display_beat_flash(color_func, color_override, brightness_override,
-                                     volume)
+            self._display_beat_flash(color_func, volume)
 
         else:
             # Continuous dance pattern with rotation
@@ -371,36 +312,6 @@ class DanceParty(BaseRoutine):
                                         brightness_override)
 
         self.last_update = current_time
-
-    def _display_beat_flash(self, color_func, color_override, brightness_override,
-                            volume):
-        """Display synchronized beat flash across all pixels."""
-        try:
-            # Beat flash - all pixels same color (like current implementation but enhanced)
-            if color_override is not None:
-                flash_color = color_override
-            else:
-                flash_color = color_func(255)
-
-            # Apply brightness override
-            if brightness_override is not None:
-                flash_color = tuple(int(c * brightness_override) for c in flash_color)
-
-            for i in range(10):
-                self.hardware.pixels[i] = flash_color
-
-            self.hardware.pixels.show()
-
-            # Beat sound with pattern variation
-            if volume:
-                beat_freq = 800 + (
-                            self.beat_pattern_state * 50)  # Vary frequency by pattern state
-                self.hardware.play_tone_if_enabled(beat_freq, 0.1, volume)
-
-        except MemoryError:
-            print("[DANCE] Beat flash memory error")
-            self.hardware.clear_pixels()
-            self.hardware.pixels.show()
 
     def _display_dance_pattern(self, deltas, color_func, speed_mod, effect_mod,
                                color_override, brightness_override):
@@ -418,7 +329,7 @@ class DanceParty(BaseRoutine):
             rotation_speed = max(0.5, avg_intensity * 0.01) * speed_mod
 
             self.rotation_offset = (
-                                               self.rotation_offset + rotation_speed * time_delta * 5) % 10
+                                           self.rotation_offset + rotation_speed * time_delta * 5) % 10
 
             # Clear pixels
             self.hardware.clear_pixels()
@@ -472,8 +383,6 @@ class DanceParty(BaseRoutine):
 
             if self.debug:
                 print("[DANCE] Safe mode - single pixel rotation")
-
-    # Bluetooth management methods (similar to Intergalactic Cruising)
 
     def disable_bluetooth(self):
         """Disable Bluetooth functionality."""
@@ -532,12 +441,12 @@ class DanceParty(BaseRoutine):
                 print("[DANCE]   Advertising: %s" % is_advertising)
                 print("[DANCE]   Device name: '%s'" % device_name)
                 print("[DANCE]   BLE object: %s" % str(self.bluetooth.ble))
-                
+
                 # Try to get connection info
                 if hasattr(self.bluetooth, 'get_connection_info'):
                     conn_info = self.bluetooth.get_connection_info()
                     print("[DANCE]   Connection info: %s" % str(conn_info))
-                
+
                 return is_advertising
             except Exception as e:
                 print("[DANCE] ❌ Error checking advertising status: %s" % str(e))
@@ -572,3 +481,289 @@ class DanceParty(BaseRoutine):
                 status['bluetooth_status'] = 'error_getting_info'
 
         return status
+
+    def _process_beat_focused_dance(self, effective_mode, volume):
+        """Process dance with full audio visualization like Intergalactic Cruising but more energetic."""
+        color_func = self.get_color_function(effective_mode)
+
+        # Use the same audio processing as Intergalactic Cruising for maximum reactivity
+        try:
+            np_samples = self.audio.record_samples()
+            deltas = self.audio.compute_deltas(np_samples)
+            
+            # Environmental brightness control (like routine 2)
+            self._apply_environmental_dimming()
+
+            # Use the proven audio visualization from Intergalactic Cruising
+            if len(deltas) > 0:
+                self._dance_audio_visualization(deltas, color_func, volume)
+            else:
+                # Simple rotating pattern when no audio
+                self._dance_idle_animation(color_func)
+
+        except MemoryError:
+            print("[DANCE] ❌ Memory error - switching to safe mode")
+            self._safe_mode_pattern(color_func)
+            gc.collect()
+
+    def _dance_audio_visualization(self, deltas, color_func, volume):
+        """Full audio visualization adapted from Intergalactic Cruising but more energetic for dancing."""
+        current_time = time.monotonic()
+
+        # Map audio deltas to pixels (same as Intergalactic Cruising)
+        pixel_data = self.hardware.map_deltas_to_pixels(deltas)
+
+        # Calculate frequency for rotation speed (same method as Cruising)
+        try:
+            freq = self.audio.calculate_frequency(deltas)
+            if freq is not None:
+                # Dance-optimized rotation - faster and more energetic
+                rotation_speed = max(2.0, freq * 0.08)  # Faster than Cruising's 0.05
+            else:
+                rotation_speed = 3.0  # Higher default speed for dancing
+        except:
+            rotation_speed = 3.0
+
+        # Update rotation offset
+        time_delta = current_time - self.last_update
+        self.rotation_offset = (self.rotation_offset + rotation_speed * time_delta) % 10
+
+        # Clear pixels
+        self.hardware.clear_pixels()
+
+        # Enhanced visualization - more pixels active than Cruising
+        active_pixel_count = min(8, max(3, len([p for p in pixel_data if p > 30])))  # More active pixels
+
+        for i in range(active_pixel_count):
+            # Calculate pixel position with rotation
+            pos = int((self.rotation_offset + i * 1.2) % 10)  # Tighter spacing than Cruising
+            
+            # Get pixel intensity
+            pixel_index = min(i, len(pixel_data) - 1)
+            intensity = pixel_data[pixel_index]
+            
+            # Dance enhancement - boost intensity for more energy
+            boosted_intensity = min(255, int(intensity * 1.5))  # 50% boost
+            
+            if boosted_intensity > 20:  # Lower threshold for more responsiveness
+                # Get color
+                pixel_color = color_func(boosted_intensity)
+                
+                # Dance special effect - add extra sparkle on high intensity
+                if boosted_intensity > 180:
+                    # Brighten high-energy pixels even more
+                    pixel_color = tuple(min(255, int(c * 1.2)) for c in pixel_color)
+                
+                self.hardware.pixels[pos] = pixel_color
+
+        # Beat emphasis - flash additional pixels on strong beats
+        if len(pixel_data) > 0:
+            max_intensity = max(pixel_data)
+            if max_intensity > 150:  # Strong beat detected
+                # Light up opposite pixels briefly for beat emphasis
+                beat_positions = [(int(self.rotation_offset) + 5) % 10]
+                beat_color = color_func(255)
+                for beat_pos in beat_positions:
+                    self.hardware.pixels[beat_pos] = beat_color
+                    
+                # Optional beat sound
+                if volume:
+                    self.hardware.play_tone_if_enabled(800, 0.05, volume)
+
+        self.hardware.pixels.show()
+        self.last_update = current_time
+
+    def _dance_idle_animation(self, color_func):
+        """Energetic idle animation when no audio - more active than Cruising."""
+        current_time = time.monotonic()
+        
+        if current_time - self.last_pattern_update > 0.1:  # Faster updates than Cruising
+            # Faster rotation for dance energy
+            self.rotation_offset = (self.rotation_offset + 2.0) % 10  # Faster than Cruising's 1.0
+            
+            # Clear pixels
+            self.hardware.clear_pixels()
+            
+            # Create a more energetic comet effect with multiple trails
+            main_pos = int(self.rotation_offset)
+            trail1_pos = (main_pos - 1) % 10
+            trail2_pos = (main_pos - 2) % 10
+            trail3_pos = (main_pos - 3) % 10
+            
+            # Brighter colors for dance energy
+            main_color = color_func(200)  # Brighter than Cruising's 120
+            trail1_color = color_func(140)  # Brighter than Cruising's 80
+            trail2_color = color_func(80)   # Brighter than Cruising's 50
+            trail3_color = color_func(40)   # Additional trail
+            
+            self.hardware.pixels[main_pos] = main_color
+            self.hardware.pixels[trail1_pos] = trail1_color
+            self.hardware.pixels[trail2_pos] = trail2_color
+            self.hardware.pixels[trail3_pos] = trail3_color
+            
+            # Add some sparkle - occasionally light up random pixels
+            if self.debug_counter % 20 == 0:  # Every 20 cycles
+                sparkle_pos = (main_pos + 5) % 10  # Opposite side
+                sparkle_color = color_func(100)
+                self.hardware.pixels[sparkle_pos] = sparkle_color
+            
+            self.hardware.pixels.show()
+            self.last_pattern_update = current_time
+
+    def _apply_environmental_dimming(self):
+        """Apply environmental brightness control similar to Intergalactic Cruising."""
+        try:
+            # Import light sensor functionality
+            from adafruit_circuitplayground import cp
+
+            current_light = cp.light
+
+            # Map light sensor reading to brightness levels (similar to routine 2)
+            if current_light < 30:  # Very dark
+                target_brightness = 0.03  # Very dim but visible
+            elif current_light < 60:  # Dark
+                target_brightness = 0.06  # Dim
+            elif current_light < 100:  # Indoor lighting
+                target_brightness = 0.12  # Low-medium brightness
+            elif current_light < 150:  # Bright indoor
+                target_brightness = 0.18  # Medium brightness
+            else:  # Daylight/very bright
+                target_brightness = 0.25  # Maximum brightness
+
+            # Smooth brightness transitions
+            current_brightness = self.hardware.pixels.brightness
+            if abs(target_brightness - current_brightness) > 0.01:
+                if target_brightness > current_brightness:
+                    new_brightness = target_brightness if target_brightness < current_brightness + 0.01 else current_brightness + 0.01
+                else:
+                    new_brightness = target_brightness if target_brightness > current_brightness - 0.01 else current_brightness - 0.01
+                self.hardware.pixels.brightness = new_brightness
+
+        except Exception as e:
+            if self.debug_counter % 50 == 0:  # Don't spam errors
+                print("[DANCE] Environmental dimming error: %s" % str(e))
+
+    def _enhanced_dance_beat_detection(self, np_samples):
+        """Enhanced beat detection optimized for dance with higher sensitivity."""
+        if len(np_samples) < 50:
+            return False
+
+        current_time = time.monotonic()
+        if current_time - self.last_beat_time < 0.12:  # Allow even faster beats (was 0.15)
+            return False
+
+        try:
+            # Focus on recent samples for responsiveness - ensure integer values
+            sample_count = min(len(np_samples), 250)  # Increased from 200 for more sensitivity
+            total_energy = 0
+
+            # Calculate mean
+            sample_sum = sum(np_samples[i] for i in range(sample_count))
+            mean_sample = sample_sum / sample_count
+
+            # Calculate energy with dance-optimized weighting
+            for i in range(sample_count):
+                diff = np_samples[i] - mean_sample
+                total_energy += diff * diff
+
+            energy = (total_energy / sample_count) ** 0.5
+
+            # More sensitive threshold than routine 2 - fix integer type issues
+            beat_threshold = int(
+                max(400, int(self.energy_threshold * 0.6)))  # Lowered multiplier from 0.7 to 0.6
+            beat_detected = energy > beat_threshold
+
+            # Adaptive threshold adjustment for dance - more responsive
+            if beat_detected:
+                self.energy_threshold = int(
+                    min(1000, self.energy_threshold + 15))  # Reduced max from 1200 to 1000
+            else:
+                self.energy_threshold = int(
+                    max(400, self.energy_threshold - 3))  # Lowered min from 500 to 400, faster decay
+
+            if self.debug_audio and self.debug_counter % 20 == 0:
+                print("[DANCE] Energy: %.1f, Threshold: %d, Beat: %s" %
+                      (energy, beat_threshold, beat_detected))
+
+            if beat_detected:
+                self.last_beat_time = current_time
+                if self.debug_audio:
+                    print("[DANCE] 🎵 DANCE BEAT DETECTED! 🎵")
+                return True
+
+        except MemoryError:
+            print("[DANCE] Beat detection memory error - using fallback")
+            return False
+
+        return False
+
+    def _update_beat_focused_visualization(self, color_func, beat_detected, volume):
+        """Beat-focused visualization - flash on beats, subtle ambient otherwise."""
+        current_time = time.monotonic()
+
+        if beat_detected:
+            # Beat response - dramatic full-ring flash
+            self._display_beat_flash(color_func, volume)
+        else:
+            # Subtle ambient pattern when no beat (much more subdued than routine 2)
+            self._display_ambient_dance_pattern(color_func)
+
+        self.last_update = current_time
+
+    def _display_beat_flash(self, color_func, volume):
+        """Display dramatic beat flash - full ring lights up."""
+        try:
+            # Beat flash - all pixels with bright color
+            flash_color = color_func(255)  # Full intensity
+
+            # Flash all pixels
+            for i in range(10):
+                self.hardware.pixels[i] = flash_color
+
+            self.hardware.pixels.show()
+
+            # Optional beat sound
+            if volume:
+                beat_freq = 800 + (self.beat_pattern_state * 30)
+                self.hardware.play_tone_if_enabled(beat_freq, 0.08, volume)
+
+            # Cycle beat pattern state for variation
+            self.beat_pattern_state = (self.beat_pattern_state + 1) % 8
+
+        except MemoryError:
+            print("[DANCE] Beat flash memory error")
+            self.hardware.clear_pixels()
+            self.hardware.pixels.show()
+
+    def _display_ambient_dance_pattern(self, color_func):
+        """Display very subtle ambient pattern when no beat detected."""
+        try:
+            current_time = time.monotonic()
+
+            # Much more subtle than the continuous wave in routine 2
+            # Just a slow, gentle rotating pair of dim pixels
+            if current_time - self.last_pattern_update > 0.4:  # Slower rotation
+                rotation_speed = 0.5  # Much slower than routine 2
+                time_delta = current_time - self.last_update
+
+                self.rotation_offset = (
+                                                   self.rotation_offset + rotation_speed * time_delta) % 10
+
+                # Clear pixels
+                self.hardware.clear_pixels()
+
+                # Just 2 dim pixels rotating slowly
+                pos1 = int(self.rotation_offset % 10)
+                pos2 = int((self.rotation_offset + 5) % 10)  # Opposite side
+
+                dim_color = color_func(40)  # Very dim ambient
+
+                self.hardware.pixels[pos1] = dim_color
+                self.hardware.pixels[pos2] = dim_color
+
+                self.hardware.pixels.show()
+                self.last_pattern_update = current_time
+
+        except MemoryError:
+            print("[DANCE] Ambient pattern memory error")
+            self._safe_mode_pattern(color_func)
