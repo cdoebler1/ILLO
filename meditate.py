@@ -29,7 +29,12 @@ class Meditate(BaseRoutine):
         self.start_time = time.monotonic()
         self.last_phase = None
         self.last_update = 0
-        self.update_delay = 0.03  # Smoother updates for meditation
+        self.update_delay = 0.05  # Increased from 0.03 for better performance
+
+        # Cache for smoother performance
+        self.last_intensity = -1
+        self.last_expansion_level = -1
+        self.pixels_cache = [None] * 10
 
         # Disable all interactions for pure meditation
         self.ignore_interactions = True
@@ -119,35 +124,42 @@ class Meditate(BaseRoutine):
                                       current_time - self.start_time) % total_cycle_time) / total_cycle_time
 
         # Calculate phase boundaries
-        inhale_end = (pattern["inhale"] * timing_multiplier) / total_cycle_time
-        hold1_end = inhale_end + (
-                    pattern["hold1"] * timing_multiplier) / total_cycle_time
-        exhale_end = hold1_end + (
-                    pattern["exhale"] * timing_multiplier) / total_cycle_time
+        inhale_duration = pattern["inhale"] * timing_multiplier
+        hold1_duration = pattern["hold1"] * timing_multiplier
+        exhale_duration = pattern["exhale"] * timing_multiplier
+        hold2_duration = pattern["hold2"] * timing_multiplier
+
+        inhale_end = inhale_duration / total_cycle_time
+        hold1_end = (inhale_duration + hold1_duration) / total_cycle_time
+        exhale_end = (
+                                 inhale_duration + hold1_duration + exhale_duration) / total_cycle_time
         # hold2 is the remainder
 
         # Determine current phase and intensity
         if cycle_position < inhale_end:
-            # Inhale phase
+            # Inhale phase - gradual increase from 0 to 255
             current_phase = "inhale"
             phase_progress = cycle_position / inhale_end
             intensity = int(255 * phase_progress)
 
         elif cycle_position < hold1_end:
-            # First hold phase
+            # First hold phase - maintain full brightness
             current_phase = "hold1"
             intensity = 255
 
         elif cycle_position < exhale_end:
-            # Exhale phase
+            # Exhale phase - gradual decrease from 255 to minimum
             current_phase = "exhale"
             phase_progress = (cycle_position - hold1_end) / (exhale_end - hold1_end)
-            intensity = int(255 * (1 - phase_progress))
+            # Start from full brightness and fade to a gentle minimum (not 0)
+            intensity = int(
+                255 * (1 - phase_progress * 0.9))  # Only fade to 10% instead of 0
+            intensity = max(25, intensity)  # Ensure minimum visibility
 
         else:
-            # Second hold phase (if exists)
+            # Second hold phase (if exists) - very dim but visible
             current_phase = "hold2"
-            intensity = 30  # Very dim for rest phase
+            intensity = 30
 
         # Update display with pattern-specific visualization
         self._update_meditation_display(color_func, intensity, current_phase, pattern)
@@ -157,20 +169,29 @@ class Meditate(BaseRoutine):
             self.last_phase = current_phase
 
     def _update_meditation_display(self, color_func, intensity, phase, pattern):
-        """Enhanced meditation display with pattern-specific visuals."""
-        self.hardware.clear_pixels()
+        """Enhanced meditation display with pattern-specific visuals - optimized for performance."""
+        # Only update if intensity changed significantly (reduces flicker and improves performance)
+        if abs(intensity - self.last_intensity) < 5 and phase == self.last_phase:
+            return
 
-        # Ultra-low brightness for meditation
-        base_brightness = min(0.05, self.hardware.pixels.brightness)
-        self.hardware.pixels.brightness = base_brightness
+        self.last_intensity = intensity
+
+        # Set ultra-low brightness once instead of every update
+        if self.hardware.pixels.brightness != 0.05:
+            self.hardware.pixels.brightness = 0.05
+
+        # Clear pixels directly on hardware
+        self.hardware.clear_pixels()
 
         if phase == "inhale":
             self._show_expansion_pattern(color_func, intensity, pattern)
         elif phase in ["hold1", "hold2"]:
             self._show_hold_pattern(color_func, intensity, phase)
         else:  # exhale
-            self._show_contraction_pattern(color_func, intensity, pattern)
+            # Use the same expansion pattern as inhale for smooth reverse effect
+            self._show_expansion_pattern(color_func, intensity, pattern)
 
+        # Show the pixels
         self.hardware.pixels.show()
 
     def _show_expansion_pattern(self, color_func, intensity, pattern):
@@ -214,14 +235,35 @@ class Meditate(BaseRoutine):
             for i in range(10):
                 self.hardware.pixels[i] = color_func(intensity)
 
+
     def _show_contraction_pattern(self, color_func, intensity, pattern):
-        """Show contraction during exhale."""
-        fade_level = (intensity / 255.0) * 5
-        pixels_active = int(fade_level) + 1  # Always keep at least center
+        """Show contraction during exhale - uses inhale pattern in reverse."""
+        # Use the same expansion logic as inhale, but in reverse
+        # This creates perfect symmetry between inhale and exhale
 
-        # Maintain center longest, fade outward
-        pixel_priority = [4, 5, 3, 6, 2, 7, 1, 8, 0, 9]
+        # Calculate expansion level the same way as inhale
+        expansion_level = (intensity / 255.0) * 5
+    
+        # Start with center pixels (same as inhale)
+        center_pixels = [4, 5]
+        color = color_func(intensity)
+        for pos in center_pixels:
+            self.pixels_cache[pos] = color
 
-        for i, pos in enumerate(pixel_priority):
-            if i < pixels_active:
-                self.hardware.pixels[pos] = color_func(intensity)
+        # Use same pattern-specific expansion as inhale
+        if pattern["name"] == "Box Breathing":
+            # Square expansion pattern (same as inhale)
+            if expansion_level > 1:
+                square_pixels = [3, 6, 2, 7]
+                for i, pos in enumerate(square_pixels):
+                    if expansion_level > i + 1:
+                        fade_intensity = int(intensity * min(1.0, expansion_level - i - 1))
+                        self.pixels_cache[pos] = color_func(fade_intensity)
+        else:
+            # Circular expansion for other patterns (same as inhale)
+            expansion_rings = [[3, 6], [2, 7], [1, 8], [0, 9]]
+            for i, ring in enumerate(expansion_rings):
+                if expansion_level > i + 1:
+                    for pos in ring:
+                        fade_intensity = int(intensity * min(1.0, expansion_level - i - 1))
+                        self.pixels_cache[pos] = color_func(fade_intensity)
