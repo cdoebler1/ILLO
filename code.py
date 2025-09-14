@@ -380,68 +380,35 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
             instance = Meditate()
 
         elif routine == 4:
-            print("[SYSTEM] ===== Loading Dance Party =====")
-            try:
-                from dance_party import DanceParty
-                print("[SYSTEM] DanceParty import successful")
+            print("[SYSTEM] Loading Dance Party...")
+            from dance_party import DanceParty
+            instance = DanceParty(name, bt_debug, audio_debug)
 
-                print("[SYSTEM] Creating DanceParty instance with:")
-                print("[SYSTEM]   name: %s" % name)
-                print("[SYSTEM]   bt_debug: %s" % bt_debug)
-                print("[SYSTEM]   audio_debug: %s" % audio_debug)
-
-                instance = DanceParty(name, bt_debug, audio_debug)
-                print("[SYSTEM] DanceParty instance created: %s" % str(instance))
-
-                # Show dance sync configuration
-                print("[SYSTEM] Dance sync configuration:")
-                print("[SYSTEM]   Role: %s" % instance.dance_role)
-                print("[SYSTEM]   Leader detection: %s" % instance.leader_detection_enabled)
-                print("[SYSTEM]   Sync enabled: %s" % instance.sync_enabled)
-                print("[SYSTEM]   Is leader: %s" % instance.is_leader)
-
-                # Check if instance has bluetooth attribute
-                print("[SYSTEM] Checking instance attributes...")
-                print(
-                    "[SYSTEM]   hasattr(instance, 'bluetooth'): %s" % hasattr(instance,
-                                                                              'bluetooth'))
-                if hasattr(instance, 'bluetooth'):
-                    print("[SYSTEM]   instance.bluetooth: %s" % str(instance.bluetooth))
-                    print("[SYSTEM]   instance.bluetooth is not None: %s" % (
-                                instance.bluetooth is not None))
-
-                print("[SYSTEM] bluetooth_enabled from config: %s" % bluetooth_enabled)
-
-                # Enable Bluetooth for Dance Party sync if configured
-                if bluetooth_enabled and hasattr(instance,
-                                                 'bluetooth') and instance.bluetooth:
-                    print("[SYSTEM] ===== Enabling Bluetooth for Dance Party Sync =====")
-                    success = instance.enable_bluetooth()
-                    if success:
-                        print("[SYSTEM] ✅ Dance Party Bluetooth sync enabled")
-                        if instance.dance_role == 'leader' or instance.is_leader:
-                            print("[SYSTEM] 👑 Ready to lead dance synchronization")
-                        elif instance.dance_role == 'follower':
-                            print("[SYSTEM] 💃 Ready to follow dance leader")
-                        else:
-                            print("[SYSTEM] 🔍 Auto-detection mode: will find optimal role")
+            # Enable Bluetooth for Dance Party if configured and available
+            # Note: Dance Party uses SyncManager, not bluetooth attribute
+            if bluetooth_enabled and hasattr(instance, 'sync_manager') and instance.sync_manager:
+                print("[SYSTEM] 📱 Enabling Bluetooth for Dance Party sync...")
+                success = instance.enable_bluetooth()
+                if success:
+                    print("[SYSTEM] ✅ Dance Party Bluetooth sync enabled")
+                    if hasattr(instance, 'is_leader') and instance.is_leader:
+                        print("[SYSTEM] 👑 Ready to lead dance synchronization")
                     else:
-                        print("[SYSTEM] ❌ Failed to enable Dance Party Bluetooth")
+                        print("[SYSTEM] 💃 Ready for dance synchronization")
                 else:
-                    print(
-                        "[SYSTEM] 🏃 Dance Party in standalone mode (Bluetooth disabled)")
-                    print("[SYSTEM] Bluetooth diagnostic:")
-                    if not bluetooth_enabled:
-                        print("[SYSTEM]   Reason: Bluetooth disabled in config")
-                    elif not hasattr(instance, 'bluetooth'):
-                        print("[SYSTEM]   Reason: No bluetooth attribute")
-                    elif not instance.bluetooth:
-                        print("[SYSTEM]   Reason: bluetooth attribute is None")
+                    print("[SYSTEM] ❌ Failed to enable Dance Party Bluetooth")
+            else:
+                print("[SYSTEM] 🏃 Dance Party in standalone mode (Bluetooth disabled)")
+                if not bluetooth_enabled:
+                    print("[SYSTEM]   Reason: Bluetooth disabled in config")
+                elif not hasattr(instance, 'sync_manager'):
+                    print("[SYSTEM]   Reason: No sync_manager attribute")
+                elif not instance.sync_manager:
+                    print("[SYSTEM]   Reason: sync_manager is None")
 
-            except Exception as e:
-                print("[SYSTEM] ❌ Error in Dance Party setup: %s" % str(e))
-                print("[SYSTEM] Error type: %s" % type(e).__name__)
-                instance = None
+            # Show dance configuration if debug enabled
+            if bt_debug:
+                print("[SYSTEM] Dance Party ready with beat detection")
 
         return instance
 

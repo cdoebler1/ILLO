@@ -10,7 +10,5 @@
   "meditate_breath_pattern": 1,
   "meditate_adaptive_timing": true,
   "meditate_ultra_dim": true,
-  "dance_role": "auto",
-  "dance_leader_detection": true,
-  "dance_sync_enabled": true
+  "is_leader": true
 }
