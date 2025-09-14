@@ -24,13 +24,17 @@ class ConfigManager:
                 'name': data['name'],
                 'college_spirit_enabled': data.get('college_spirit_enabled', True),
                 'college': data.get('college', 'none'),
-                'ufo_persistent_memory': data.get('ufo_persistent_memory', False),
-                'college_chant_detection_enabled': data.get('college_chant_detection_enabled', True),
+                'ufo_persistent_memory': data.get('ufo_persistent_memory', True),
+                'college_chant_detection_enabled': data.get('college_chant_detection_enabled', False),
                 'bluetooth_enabled': data.get('bluetooth_enabled', True),  # Default to enabled for compatibility
                 # Meditation configuration entries
                 'meditate_breath_pattern': data.get('meditate_breath_pattern', 1),  # 1-4 breathing patterns
                 'meditate_adaptive_timing': data.get('meditate_adaptive_timing', True),  # Light-based timing adjustment
-                'meditate_ultra_dim': data.get('meditate_ultra_dim', True)  # Ultra-low brightness mode
+                'meditate_ultra_dim': data.get('meditate_ultra_dim', True),  # Ultra-low brightness mode
+                # Dance Party sync configuration
+                'dance_role': data.get('dance_role', 'auto'),  # 'auto', 'leader', 'follower'
+                'dance_leader_detection': data.get('dance_leader_detection', True),  # Auto-detect leaders
+                'dance_sync_enabled': data.get('dance_sync_enabled', True)  # Enable multi-ILLO sync
             }
         except Exception as e:
             print("[CONFIG] ❌ Failed to load config: %s" % str(e))
@@ -41,13 +45,17 @@ class ConfigManager:
                 'name': 'ILLO',
                 'college_spirit_enabled': True,
                 'college': 'none',
-                'ufo_persistent_memory': False,
-                'college_chant_detection_enabled': True,
+                'ufo_persistent_memory': True,
+                'college_chant_detection_enabled': False,
                 'bluetooth_enabled': True,
                 # Meditation defaults
                 'meditate_breath_pattern': 1,  # Default to 4-7-8 breathing
                 'meditate_adaptive_timing': True,  # Enable light-based timing by default
-                'meditate_ultra_dim': True  # Enable ultra-dim mode by default
+                'meditate_ultra_dim': True,  # Enable ultra-dim mode by default
+                # Dance Party defaults
+                'dance_role': 'auto',  # Auto-detect role by default
+                'dance_leader_detection': True,  # Enable leader detection
+                'dance_sync_enabled': True  # Enable sync by default
             }
 
     def save_config(self, config):
@@ -58,20 +66,24 @@ class ConfigManager:
             config: Dictionary with configuration values
         """
         try:
-            # Ensure we have all required fields including meditation settings
+            # Ensure we have all required fields including meditation and dance settings
             config_data = {
                 'routine': config.get('routine', 1),
                 'mode': config.get('mode', 1),
                 'name': config.get('name', 'ILLO'),
                 'college_spirit_enabled': config.get('college_spirit_enabled', True),
                 'college': config.get('college', 'none'),
-                'ufo_persistent_memory': config.get('ufo_persistent_memory', False),
-                'college_chant_detection_enabled': config.get('college_chant_detection_enabled', True),
+                'ufo_persistent_memory': config.get('ufo_persistent_memory', True),
+                'college_chant_detection_enabled': config.get('college_chant_detection_enabled', False),
                 'bluetooth_enabled': config.get('bluetooth_enabled', True),
                 # Meditation configuration
                 'meditate_breath_pattern': config.get('meditate_breath_pattern', 1),
                 'meditate_adaptive_timing': config.get('meditate_adaptive_timing', True),
-                'meditate_ultra_dim': config.get('meditate_ultra_dim', True)
+                'meditate_ultra_dim': config.get('meditate_ultra_dim', True),
+                # Dance Party configuration
+                'dance_role': config.get('dance_role', 'auto'),
+                'dance_leader_detection': config.get('dance_leader_detection', True),
+                'dance_sync_enabled': config.get('dance_sync_enabled', True)
             }
             with open('config.json', 'w') as config_file:
                 config_file.write('{\n')
@@ -85,12 +97,15 @@ class ConfigManager:
                 config_file.write('  "bluetooth_enabled": %s,\n' % str(config_data['bluetooth_enabled']).lower())
                 config_file.write('  "meditate_breath_pattern": %d,\n' % config_data['meditate_breath_pattern'])
                 config_file.write('  "meditate_adaptive_timing": %s,\n' % str(config_data['meditate_adaptive_timing']).lower())
-                config_file.write('  "meditate_ultra_dim": %s\n' % str(config_data['meditate_ultra_dim']).lower())
+                config_file.write('  "meditate_ultra_dim": %s,\n' % str(config_data['meditate_ultra_dim']).lower())
+                config_file.write('  "dance_role": "%s",\n' % config_data['dance_role'])
+                config_file.write('  "dance_leader_detection": %s,\n' % str(config_data['dance_leader_detection']).lower())
+                config_file.write('  "dance_sync_enabled": %s\n' % str(config_data['dance_sync_enabled']).lower())
                 config_file.write('}\n')
             
-            print("[CONFIG] ⚙️ Configuration saved: Routine %d, Mode %d, BT: %s, Meditate: P%d/A%s" % 
+            print("[CONFIG] ⚙️ Configuration saved: Routine %d, Mode %d, BT: %s, Dance: %s" % 
                   (config_data['routine'], config_data['mode'], config_data['bluetooth_enabled'],
-                   config_data['meditate_breath_pattern'], config_data['meditate_adaptive_timing']))
+                   config_data['dance_role']))
             return True
             
         except (OSError, RuntimeError) as e:

@@ -22,7 +22,32 @@ class DanceParty(BaseRoutine):
         self.debug_counter = 0
         self._last_bt_mode = None
 
-        # Simplified - no Bluetooth initialization for focus mode
+        # Load configuration for dance sync
+        self.config = self._load_dance_config()
+
+        # Multi-UFO sync state - now configured from config.json
+        self.dance_role = self.config.get('dance_role',
+                                          'auto')  # 'auto', 'leader', 'follower'
+        self.leader_detection_enabled = self.config.get('dance_leader_detection', True)
+        self.sync_enabled = self.config.get('dance_sync_enabled', True)
+
+        # Set initial role based on config
+        if self.dance_role == 'leader':
+            self.is_leader = True
+        elif self.dance_role == 'follower':
+            self.is_leader = False
+        else:  # 'auto' mode
+            self.is_leader = False  # Start as follower, will detect leadership
+
+        self.pending_beat_sync = False
+        self.leader_search_time = time.monotonic()
+        self.leader_search_interval = 10.0  # Search for leader every 10 seconds
+        self.connection_attempt_time = 0
+        self.connection_retry_interval = 30.0  # Retry connections every 30 seconds
+
+        # Bluetooth initialization tracking
+        self._bluetooth_init_attempted = False
+        self._bluetooth_init_success = False
         self.bluetooth = None
         self.bluetooth_enabled = False
 
@@ -34,12 +59,37 @@ class DanceParty(BaseRoutine):
         # Dance timing
         self.last_pattern_update = time.monotonic()
 
-        # Multi-UFO sync state
-        self.is_leader = False  # Default to follower mode
-        self.pending_beat_sync = False
-
         print("[DANCE] 🎵 Dance Party initialized - Beat Detection Mode")
-        print("[DANCE] Bluetooth: Disabled (Focus Mode)")
+        print("[DANCE] 📡 Sync Config: Role=%s, Detection=%s, Sync=%s" %
+              (self.dance_role, self.leader_detection_enabled, self.sync_enabled))
+
+        if self.dance_role == 'leader':
+            print("[DANCE] 👑 Configured as LEADER")
+        elif self.dance_role == 'follower':
+            print("[DANCE] 💃 Configured as FOLLOWER")
+        else:
+            print("[DANCE] 🔍 AUTO mode - will detect role automatically")
+
+        # Initialize Bluetooth if enabled in config (like Intergalactic Cruising)
+        bluetooth_config_enabled = self.config.get('bluetooth_enabled', True)
+        if bluetooth_config_enabled:
+            self._initialize_bluetooth(device_name, bluetooth_config_enabled)
+        else:
+            print("[DANCE] Bluetooth: Disabled in config")
+
+    def _load_dance_config(self):
+        """Load dance-specific configuration from config.json."""
+        try:
+            from config_manager import ConfigManager
+            config_mgr = ConfigManager()
+            return config_mgr.load_config()
+        except Exception as e:
+            print("[DANCE] ❌ Failed to load config: %s" % str(e))
+            return {
+                'dance_role': 'auto',
+                'dance_leader_detection': True,
+                'dance_sync_enabled': True
+            }
 
     def _initialize_bluetooth(self, device_name, bluetooth_config_enabled):
         """Initialize Bluetooth with robust error handling like Intergalactic Cruising."""
@@ -74,9 +124,13 @@ class DanceParty(BaseRoutine):
 
             print("[DANCE] ✅ Bluetooth controller validation passed")
 
-            # Set device name for dance party - SIMPLIFIED
+            # Set device name for dance party with role indication
             print("[DANCE] Setting device name...")
-            final_name = device_name + "_DANCE"
+            role_suffix = "_LEADER" if self.is_leader else "_FOLLOWER"
+            if self.dance_role == 'auto':
+                role_suffix = "_AUTO"
+            final_name = device_name + "_DANCE" + role_suffix
+
             try:
                 print("[DANCE] Setting BLE name to: %s" % final_name)
                 self.bluetooth.ble.name = final_name
@@ -109,7 +163,7 @@ class DanceParty(BaseRoutine):
             self.bluetooth = None
 
     def enable_bluetooth(self):
-        """Enable Bluetooth functionality."""
+        """Enable Bluetooth functionality with dance sync setup."""
         print("[DANCE] enable_bluetooth() called")
         print("[DANCE] is_bluetooth_available(): %s" % self.is_bluetooth_available())
 
@@ -121,10 +175,19 @@ class DanceParty(BaseRoutine):
         print("[DANCE] bluetooth_enabled set to True")
 
         try:
-            print("[DANCE] Starting advertising...")
+            print("[DANCE] Starting advertising for dance sync...")
             if self.bluetooth.start_advertising():
                 print("[DANCE] ✅ Advertising started successfully")
-                print("[DANCE] 📡 Multi-UFO sync enabled - ready for followers!")
+
+                # Set up role-specific behavior when Bluetooth is enabled
+                if self.dance_role == 'leader' or self.is_leader:
+                    self._setup_leader_mode()
+                elif self.dance_role == 'follower':
+                    self._setup_follower_mode()
+                else:  # auto mode
+                    self._setup_auto_detection()
+
+                print("[DANCE] 📡 Multi-UFO sync enabled!")
                 return True
             else:
                 print("[DANCE] ❌ start_advertising() returned False")
@@ -132,6 +195,139 @@ class DanceParty(BaseRoutine):
         except Exception as e:
             print("[DANCE] ❌ Error starting advertising: %s" % str(e))
             return False
+
+    def _setup_leader_mode(self):
+        """Setup this ILLO as a dance leader."""
+        self.is_leader = True
+        print("[DANCE] 👑 Setting up as DANCE LEADER")
+        print("[DANCE] 📡 Ready to broadcast beats to followers!")
+
+    def _setup_follower_mode(self):
+        """Setup this ILLO as a dance follower."""
+        self.is_leader = False
+        print("[DANCE] 💃 Setting up as DANCE FOLLOWER")
+        print("[DANCE] 🔍 Will search for dance leader...")
+
+    def _setup_auto_detection(self):
+        """Setup auto-detection mode - start as follower and look for leader."""
+        self.is_leader = False
+        print("[DANCE] 🔍 AUTO mode - starting as follower")
+        print("[DANCE] 🎯 Will become leader if no leader found")
+        
+        # Schedule immediate leader search when auto-detection is enabled
+        self.leader_search_time = time.monotonic() - self.leader_search_interval
+        
+        # For single ILLO testing, become leader quickly if Bluetooth isn't fully working
+        self.auto_promotion_timer = time.monotonic()
+        self.auto_promotion_delay = 5.0  # Become leader after 5 seconds if no leader found
+
+    def _manage_auto_role_detection(self):
+        """Manage automatic role detection for multi-ILLO sync."""
+        if not self.sync_enabled or not self.leader_detection_enabled:
+            return
+
+        if self.dance_role != 'auto':
+            return  # Only manage auto-detection in auto mode
+            
+        current_time = time.monotonic()
+        
+        # In auto mode, if we're not a leader yet
+        if not self.is_leader:
+            # Quick promotion for single ILLO or when Bluetooth scanning isn't working
+            if hasattr(self, 'auto_promotion_timer'):
+                if (current_time - self.auto_promotion_timer) > self.auto_promotion_delay:
+                    print("[DANCE] 🕐 Auto-promotion timeout - becoming leader")
+                    self._become_leader()
+                    return
+            
+            # Periodic leader search for followers (if Bluetooth is available)
+            if (current_time - self.leader_search_time) > self.leader_search_interval:
+                if self.bluetooth_enabled and self.is_bluetooth_available():
+                    self._search_for_leader()
+                else:
+                    # If Bluetooth is not available, just log that we're looking
+                    print("[DANCE] 🔍 Checking for leaders (Bluetooth scanning not available)")
+                self.leader_search_time = current_time
+            
+            # Fallback: If enough time has passed and we haven't found/connected to a leader
+            promotion_delay = self.leader_search_interval * 3  # 30 seconds fallback
+            if (current_time - self.leader_search_time) > promotion_delay:
+                if not self._is_connected_to_leader():
+                    print("[DANCE] 🕐 Fallback promotion - becoming leader after extended search")
+                    self._become_leader()
+
+    def _search_for_leader(self):
+        """Search for an existing dance leader."""
+        if not self.bluetooth_enabled or not self.is_bluetooth_available():
+            return
+
+        print("[DANCE] 🔍 Searching for dance leader...")
+
+        try:
+            # This is where we'd implement actual BLE scanning
+            # For now, just log the attempt
+            print("[DANCE] 📡 Scanning for leader advertisements...")
+
+            # TODO: Implement actual BLE scanning when Bluetooth is fully enabled
+            # found_leader = self._scan_for_leader_advertisement()
+            found_leader = False
+
+            if found_leader:
+                print("[DANCE] 🎯 Found leader! Connecting as follower...")
+                self._connect_to_leader()
+            else:
+                print("[DANCE] ❌ No leader found in scan")
+
+        except Exception as e:
+            print("[DANCE] ❌ Error searching for leader: %s" % str(e))
+
+    def _become_leader(self):
+        """Promote this ILLO to leader status."""
+        if self.is_leader:
+            return
+
+        print("[DANCE] 👑 No leader found - becoming DANCE LEADER!")
+        self.is_leader = True
+        self.set_as_leader()
+
+        # Update advertising to broadcast leader status
+        if self.bluetooth_enabled and self.is_bluetooth_available():
+            try:
+                # Update the device name to reflect leader status
+                leader_name = self.device_name + "_DANCE_LEADER"
+                self.bluetooth.ble.name = leader_name
+                if hasattr(self.bluetooth,
+                           'advertisement') and self.bluetooth.advertisement:
+                    self.bluetooth.advertisement.complete_name = leader_name
+                print("[DANCE] 📡 Broadcasting as leader: %s" % leader_name)
+            except Exception as e:
+                print("[DANCE] ❌ Error updating leader advertisement: %s" % str(e))
+
+    def _connect_to_leader(self):
+        """Connect to a discovered dance leader."""
+        current_time = time.monotonic()
+
+        if (
+                current_time - self.connection_attempt_time) < self.connection_retry_interval:
+            return  # Don't retry connections too frequently
+
+        print("[DANCE] 🔌 Attempting to connect to leader...")
+        self.connection_attempt_time = current_time
+
+        try:
+            # TODO: Implement actual leader connection when Bluetooth is fully enabled
+            print("[DANCE] 📡 Connection logic will be implemented with full Bluetooth")
+
+        except Exception as e:
+            print("[DANCE] ❌ Error connecting to leader: %s" % str(e))
+
+    def _is_connected_to_leader(self):
+        """Check if currently connected to a leader."""
+        if not self.bluetooth_enabled or not self.is_bluetooth_available():
+            return False
+
+        # TODO: Implement actual connection checking
+        return False
 
     def is_bluetooth_available(self):
         """Check if Bluetooth is available and properly initialized."""
@@ -141,7 +337,7 @@ class DanceParty(BaseRoutine):
                 self.bluetooth.ble is not None)
 
     def run(self, mode, volume):
-        """Run the dance party with full audio visualization and environmental dimming."""
+        """Run the dance party with multi-ILLO sync management."""
         # Determine effective mode (could be overridden by Bluetooth if enabled)
         effective_mode = mode
 
@@ -150,12 +346,17 @@ class DanceParty(BaseRoutine):
 
         # Basic run loop debug - every 100 cycles
         if self.debug_counter % 100 == 0:
-            print("[DANCE] 🔄 Run loop cycle %d (bluetooth_enabled: %s)" % (
-                self.debug_counter, self.bluetooth_enabled))
+            print("[DANCE] 🔄 Run loop cycle %d (bluetooth_enabled: %s, role: %s)" % (
+                self.debug_counter, self.bluetooth_enabled,
+                "LEADER" if self.is_leader else "FOLLOWER"))
 
         # Force garbage collection periodically to manage memory
         if self.debug_counter % 100 == 0:
             gc.collect()
+
+        # Manage auto role detection
+        if self.bluetooth_enabled:
+            self._manage_auto_role_detection()
 
         # Only manage Bluetooth if explicitly enabled (skip when disabled for focus)
         if self.bluetooth_enabled and self.is_bluetooth_available():
@@ -458,11 +659,15 @@ class DanceParty(BaseRoutine):
     def get_status(self):
         """Get detailed status information for debugging."""
         status = {
-            'bluetooth_init_attempted': self._bluetooth_init_attempted,
-            'bluetooth_init_success': self._bluetooth_init_success,
+            'bluetooth_init_attempted': getattr(self, '_bluetooth_init_attempted',
+                                                False),
+            'bluetooth_init_success': getattr(self, '_bluetooth_init_success', False),
             'bluetooth_available': self.is_bluetooth_available(),
             'bluetooth_enabled': self.bluetooth_enabled,
             'is_leader': self.is_leader,
+            'dance_role': self.dance_role,
+            'leader_detection_enabled': self.leader_detection_enabled,
+            'sync_enabled': self.sync_enabled,
             'beat_pattern_state': self.beat_pattern_state,
             'debug_enabled': self.debug
         }
@@ -490,7 +695,7 @@ class DanceParty(BaseRoutine):
         try:
             np_samples = self.audio.record_samples()
             deltas = self.audio.compute_deltas(np_samples)
-            
+
             # Environmental brightness control (like routine 2)
             self._apply_environmental_dimming()
 
@@ -532,28 +737,30 @@ class DanceParty(BaseRoutine):
         self.hardware.clear_pixels()
 
         # Enhanced visualization - more pixels active than Cruising
-        active_pixel_count = min(8, max(3, len([p for p in pixel_data if p > 30])))  # More active pixels
+        active_pixel_count = min(8, max(3, len([p for p in pixel_data if
+                                                p > 30])))  # More active pixels
 
         for i in range(active_pixel_count):
             # Calculate pixel position with rotation
-            pos = int((self.rotation_offset + i * 1.2) % 10)  # Tighter spacing than Cruising
-            
+            pos = int(
+                (self.rotation_offset + i * 1.2) % 10)  # Tighter spacing than Cruising
+
             # Get pixel intensity
             pixel_index = min(i, len(pixel_data) - 1)
             intensity = pixel_data[pixel_index]
-            
+
             # Dance enhancement - boost intensity for more energy
             boosted_intensity = min(255, int(intensity * 1.5))  # 50% boost
-            
+
             if boosted_intensity > 20:  # Lower threshold for more responsiveness
                 # Get color
                 pixel_color = color_func(boosted_intensity)
-                
+
                 # Dance special effect - add extra sparkle on high intensity
                 if boosted_intensity > 180:
                     # Brighten high-energy pixels even more
                     pixel_color = tuple(min(255, int(c * 1.2)) for c in pixel_color)
-                
+
                 self.hardware.pixels[pos] = pixel_color
 
         # Beat emphasis - flash additional pixels on strong beats
@@ -565,7 +772,7 @@ class DanceParty(BaseRoutine):
                 beat_color = color_func(255)
                 for beat_pos in beat_positions:
                     self.hardware.pixels[beat_pos] = beat_color
-                    
+
                 # Optional beat sound
                 if volume:
                     self.hardware.play_tone_if_enabled(800, 0.05, volume)
@@ -576,37 +783,38 @@ class DanceParty(BaseRoutine):
     def _dance_idle_animation(self, color_func):
         """Energetic idle animation when no audio - more active than Cruising."""
         current_time = time.monotonic()
-        
+
         if current_time - self.last_pattern_update > 0.1:  # Faster updates than Cruising
             # Faster rotation for dance energy
-            self.rotation_offset = (self.rotation_offset + 2.0) % 10  # Faster than Cruising's 1.0
-            
+            self.rotation_offset = (
+                                               self.rotation_offset + 2.0) % 10  # Faster than Cruising's 1.0
+
             # Clear pixels
             self.hardware.clear_pixels()
-            
+
             # Create a more energetic comet effect with multiple trails
             main_pos = int(self.rotation_offset)
             trail1_pos = (main_pos - 1) % 10
             trail2_pos = (main_pos - 2) % 10
             trail3_pos = (main_pos - 3) % 10
-            
+
             # Brighter colors for dance energy
             main_color = color_func(200)  # Brighter than Cruising's 120
             trail1_color = color_func(140)  # Brighter than Cruising's 80
-            trail2_color = color_func(80)   # Brighter than Cruising's 50
-            trail3_color = color_func(40)   # Additional trail
-            
+            trail2_color = color_func(80)  # Brighter than Cruising's 50
+            trail3_color = color_func(40)  # Additional trail
+
             self.hardware.pixels[main_pos] = main_color
             self.hardware.pixels[trail1_pos] = trail1_color
             self.hardware.pixels[trail2_pos] = trail2_color
             self.hardware.pixels[trail3_pos] = trail3_color
-            
+
             # Add some sparkle - occasionally light up random pixels
             if self.debug_counter % 20 == 0:  # Every 20 cycles
                 sparkle_pos = (main_pos + 5) % 10  # Opposite side
                 sparkle_color = color_func(100)
                 self.hardware.pixels[sparkle_pos] = sparkle_color
-            
+
             self.hardware.pixels.show()
             self.last_pattern_update = current_time
 
@@ -654,7 +862,8 @@ class DanceParty(BaseRoutine):
 
         try:
             # Focus on recent samples for responsiveness - ensure integer values
-            sample_count = min(len(np_samples), 250)  # Increased from 200 for more sensitivity
+            sample_count = min(len(np_samples),
+                               250)  # Increased from 200 for more sensitivity
             total_energy = 0
 
             # Calculate mean
@@ -670,16 +879,19 @@ class DanceParty(BaseRoutine):
 
             # More sensitive threshold than routine 2 - fix integer type issues
             beat_threshold = int(
-                max(400, int(self.energy_threshold * 0.6)))  # Lowered multiplier from 0.7 to 0.6
+                max(400,
+                    int(self.energy_threshold * 0.6)))  # Lowered multiplier from 0.7 to 0.6
             beat_detected = energy > beat_threshold
 
             # Adaptive threshold adjustment for dance - more responsive
             if beat_detected:
                 self.energy_threshold = int(
-                    min(1000, self.energy_threshold + 15))  # Reduced max from 1200 to 1000
+                    min(1000,
+                        self.energy_threshold + 15))  # Reduced max from 1200 to 1000
             else:
                 self.energy_threshold = int(
-                    max(400, self.energy_threshold - 3))  # Lowered min from 500 to 400, faster decay
+                    max(400,
+                        self.energy_threshold - 3))  # Lowered min from 500 to 400, faster decay
 
             if self.debug_audio and self.debug_counter % 20 == 0:
                 print("[DANCE] Energy: %.1f, Threshold: %d, Beat: %s" %
@@ -747,7 +959,7 @@ class DanceParty(BaseRoutine):
                 time_delta = current_time - self.last_update
 
                 self.rotation_offset = (
-                                                   self.rotation_offset + rotation_speed * time_delta) % 10
+                                               self.rotation_offset + rotation_speed * time_delta) % 10
 
                 # Clear pixels
                 self.hardware.clear_pixels()

@@ -393,6 +393,13 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
                 instance = DanceParty(name, bt_debug, audio_debug)
                 print("[SYSTEM] DanceParty instance created: %s" % str(instance))
 
+                # Show dance sync configuration
+                print("[SYSTEM] Dance sync configuration:")
+                print("[SYSTEM]   Role: %s" % instance.dance_role)
+                print("[SYSTEM]   Leader detection: %s" % instance.leader_detection_enabled)
+                print("[SYSTEM]   Sync enabled: %s" % instance.sync_enabled)
+                print("[SYSTEM]   Is leader: %s" % instance.is_leader)
+
                 # Check if instance has bluetooth attribute
                 print("[SYSTEM] Checking instance attributes...")
                 print(
@@ -405,13 +412,19 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
 
                 print("[SYSTEM] bluetooth_enabled from config: %s" % bluetooth_enabled)
 
-                # Enable Bluetooth for Dance Party like we do for Intergalactic Cruising
+                # Enable Bluetooth for Dance Party sync if configured
                 if bluetooth_enabled and hasattr(instance,
                                                  'bluetooth') and instance.bluetooth:
-                    print("[SYSTEM] ===== Enabling Bluetooth for Dance Party =====")
+                    print("[SYSTEM] ===== Enabling Bluetooth for Dance Party Sync =====")
                     success = instance.enable_bluetooth()
                     if success:
-                        print("[SYSTEM] ✅ Dance Party Bluetooth enabled")
+                        print("[SYSTEM] ✅ Dance Party Bluetooth sync enabled")
+                        if instance.dance_role == 'leader' or instance.is_leader:
+                            print("[SYSTEM] 👑 Ready to lead dance synchronization")
+                        elif instance.dance_role == 'follower':
+                            print("[SYSTEM] 💃 Ready to follow dance leader")
+                        else:
+                            print("[SYSTEM] 🔍 Auto-detection mode: will find optimal role")
                     else:
                         print("[SYSTEM] ❌ Failed to enable Dance Party Bluetooth")
                 else:
