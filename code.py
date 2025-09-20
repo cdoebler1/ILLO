@@ -386,7 +386,7 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
 
             # Enable Bluetooth for Dance Party if configured and available
             # Note: Dance Party uses SyncManager, not bluetooth attribute
-            if bluetooth_enabled and hasattr(instance, 'sync_manager') and instance.sync_manager:
+            if bluetooth_enabled and hasattr(instance, 'enable_bluetooth'):
                 print("[SYSTEM] 📱 Enabling Bluetooth for Dance Party sync...")
                 success = instance.enable_bluetooth()
                 if success:
@@ -401,10 +401,6 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
                 print("[SYSTEM] 🏃 Dance Party in standalone mode (Bluetooth disabled)")
                 if not bluetooth_enabled:
                     print("[SYSTEM]   Reason: Bluetooth disabled in config")
-                elif not hasattr(instance, 'sync_manager'):
-                    print("[SYSTEM]   Reason: No sync_manager attribute")
-                elif not instance.sync_manager:
-                    print("[SYSTEM]   Reason: sync_manager is None")
 
             # Show dance configuration if debug enabled
             if bt_debug:
