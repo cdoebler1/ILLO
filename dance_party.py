@@ -1,574 +1,458 @@
-# Charles Doebler at Feral Cat AI
-# Multi-UFO Synchronized Dance Party - Leader/Follower with Bluetooth Control
+# Charles Doebler — Feral Cat AI
+# Multi-UFO Synchronized Dance Party — Name-string BLE Sync (CPB nRF52840)
+#
+# Leader: expressive audio-reactive baton (head + 1 trail + optional spark on beats).
+# Followers: mirror exactly those 3 pixels using ILLO_* advertisement name.
+# No changes to code.py or Routine 2. No AdvertisementError import.
 
 from base_routine import BaseRoutine
-from audio_processor import AudioProcessor
 import time
 import gc
+from adafruit_circuitplayground import cp
+from adafruit_ble import BLERadio
+from adafruit_ble.advertising.standard import Advertisement
+
+# Optional project audio helper (as in your repo)
+try:
+    from audio_processor import AudioProcessor
+    _HAS_AUDIO = True
+except Exception:
+    _HAS_AUDIO = False
 
 
 class DanceParty(BaseRoutine):
+    """
+    Leader/follower visual sync over BLE advertisement name.
+    Protocol (unchanged):
+      ILLO_<seq>_<pos1>_<int1>_<col1>_<pos2>_<int2>_<col2>_<pos3>_<int3>_<col3>
+    """
+
+    _NUM_PIXELS = 10
+    _BRIGHTNESS = 0.20
+
+    # Timing (slower, follower-friendly)
+    _STEP_MS = 260           # visual step; adv matches this (≈3.8 revs/min)
+    _ADV_PERIOD_MS = 260     # advertising refresh cadence (aligned with step)
+    _SCAN_BURST_S = 0.35     # follower scan burst (active scan)
+    _LOSS_TIMEOUT_S = 3.0    # follower loss detection
+    _MIN_RENDER_MS = 30      # ~33 FPS cap (rate limit follower render)
+    _SMOOTH_ALPHA = 0.65     # follower smoothing 0..1; higher = snappier
+
     def __init__(self, device_name, debug_bluetooth=False, debug_audio=False):
         super().__init__()
-        self.audio = AudioProcessor()
         self.device_name = device_name
-        self.debug_bluetooth = debug_bluetooth
-        self.debug_audio = debug_audio
-        self.last_update = time.monotonic()
-        self.rotation_offset = 0
+        self.debug_bluetooth = bool(debug_bluetooth)
+        self.debug_audio = bool(debug_audio)
 
-        # Debug flag and counter like Intergalactic Cruising
-        self.debug = debug_bluetooth
-        self.debug_counter = 0
-        self._last_bt_mode = None
+        # Config
+        self.config = self._load_dance_config()
+        self.is_leader = bool(self.config.get('is_leader', False))
+        self.sync_enabled = bool(self.config.get('bluetooth_enabled', True))
 
-        # Bluetooth initialization state tracking
-        self._bluetooth_init_attempted = False
-        self._bluetooth_init_success = False
-        self.bluetooth = None
-        self.bluetooth_enabled = False
+        # BLE
+        self.ble = None
+        self.sync_active = False
+        self.sync_manager = None   # checked by code.py
 
-        # Multi-UFO dance synchronization
-        self.is_leader = True  # Will be determined by Bluetooth role
-        self.follower_connections = []  # Track connected followers
-        self.sync_commands = []  # Queue for sending sync commands to followers
+        # Leader state
+        self._seq = 0
+        self._last_adv_ms = 0
+        self._index = 0
+        self._next_tick_ms = self._now_ms() + self._STEP_MS
 
-        # Beat detection parameters
-        self.last_beat_time = 0
-        self.beat_pattern_state = 0  # For synchronized patterns
-        self.energy_threshold = 800
+        # Expressive motion state (leader)
+        self._dir = 1                # +1 or -1
+        self._gap = 1                # trail spacing (1 or 2)
+        self._swing_ms = 0           # ± jitter applied to next step after beats
+        self._beat_on = False
+        self._beat_timer = 0         # frames remaining for "pop"
+        self._spark_pos = None       # transient spark position (uses third triple)
 
-        # Dance-specific Bluetooth commands for leader-follower sync
-        self.pending_beat_sync = False
-        self.last_sync_command_time = 0
+        # Follower state
+        self._last_seen_t = None
+        self._last_seq = None
 
-        self.last_pattern_update = time.monotonic()
+        # Audio
+        self._audio_ok = False
+        if _HAS_AUDIO:
+            try:
+                self.audio = AudioProcessor()
+                self._audio_ok = True
+            except Exception as e:
+                if self.debug_audio:
+                    print("[DANCE] ⚠️ Audio init failed:", e)
+        # Smoothed energy, envelope & hysteretic color (leader)
+        self._energy_lp = 120.0
+        self._env = 120.0
+        self._ctype = 2  # 0=red, 1=green, 2=blue/pink-ish
 
-        print("[DANCE] 🎵 Dance Party initializing...")
-        print("[DANCE] Device name parameter: %s" % device_name)
-        print("[DANCE] Debug BT: %s, Debug Audio: %s" % (debug_bluetooth, debug_audio))
+        # Pixels
+        cp.pixels.auto_write = False
+        cp.pixels.brightness = self._BRIGHTNESS
+        self._clear_pixels()
+        self._last_render_ms = 0
+        # per-pixel smoothed RGB; RAM-safe (10 × 3 floats)
+        self._smooth_rgb = [[0.0, 0.0, 0.0] for _ in range(self._NUM_PIXELS)]
 
-        # Read configuration for Bluetooth setup
-        print("[DANCE] Loading configuration...")
-        device_name, bluetooth_config_enabled = self._load_configuration()
-        print("[DANCE] Config loaded - Name: %s, BT enabled: %s" % (device_name, bluetooth_config_enabled))
-        
-        # Initialize Bluetooth with robust error recovery like Intergalactic Cruising
-        print("[DANCE] Starting Bluetooth initialization...")
-        self._initialize_bluetooth(device_name, bluetooth_config_enabled)
-        print("[DANCE] Bluetooth initialization complete")
-        print("[DANCE] BT attempted: %s, BT success: %s" % (self._bluetooth_init_attempted, self._bluetooth_init_success))
+        print("[DANCE] 🎵 Dance Party init — is_leader=%s, BLE=%s, audio=%s"
+              % ("Y" if self.is_leader else "N",
+                 "EN" if self.sync_enabled else "DIS",
+                 "Y" if self._audio_ok else "N"))
 
-        print("[DANCE] 🎵 Dance Party initialized - Multi-UFO Sync Ready")
-        print("[DANCE] Final device name: %s" % device_name)
+        if self.sync_enabled:
+            self._initialize_ble()
+            if self.sync_active:
+                self.sync_manager = self  # allow code.py to call enable_bluetooth()
 
-    def _load_configuration(self):
-        """Load configuration with proper error handling."""
-        print("[DANCE] _load_configuration() called")
+    # -------- Code.py contract --------
+    def enable_bluetooth(self):
+        if self.sync_active:
+            if self.debug_bluetooth:
+                print("[DANCE] ✅ Bluetooth already active")
+            return True
         try:
-            from config_manager import ConfigManager
-            config_mgr = ConfigManager()
-            config = config_mgr.load_config()
-            device_name = config.get('name', 'UFO_DANCER')
-            bluetooth_config_enabled = config.get('bluetooth_enabled', True)
-            print("[DANCE] Config values - name: %s, bt_enabled: %s" % (device_name, bluetooth_config_enabled))
-            return device_name, bluetooth_config_enabled
+            self._initialize_ble()
+            return self.sync_active
         except Exception as e:
-            print("[DANCE] Config read error: %s, using defaults" % str(e))
-            return 'UFO_DANCER', True
+            print("[DANCE] ❌ Bluetooth enable failed:", e)
+            return False
 
-    def _initialize_bluetooth(self, device_name, bluetooth_config_enabled):
-        """Initialize Bluetooth with robust error handling like Intergalactic Cruising."""
-        print("[DANCE] _initialize_bluetooth() called")
-        print("[DANCE] Parameters - device_name: %s, config_enabled: %s" % (device_name, bluetooth_config_enabled))
-        
-        self._bluetooth_init_attempted = True
-        
-        if not bluetooth_config_enabled:
-            self.bluetooth = None
-            print("[DANCE] Bluetooth disabled in config - standalone mode")
+    # -------- Main loop --------
+    def run(self, mode, volume):
+        if not self.sync_active:
+            # Local fallback: still show audio baton if possible
+            self._leader_frame()     # draw current frame
+            self._advance_ring_if_due()
             return
 
-        print("[DANCE] Bluetooth enabled in config, proceeding with initialization...")
+        if self.is_leader:
+            # Draw first, then handle BLE (keeps visuals smooth)
+            self._leader_frame()
+            self._advance_ring_if_due()
+            self._leader_advertise_if_due()
+        else:
+            self._follower_loop()
 
-        try:
-            print("[DANCE] Importing BluefruitController...")
-            from bluetooth_controller import BluefruitController
-            print("[DANCE] BluefruitController imported successfully")
-            
-            # Initialize Bluetooth controller - SIMPLIFIED LIKE INTERGALACTIC CRUISING
-            print("[DANCE] Creating BluefruitController instance...")
-            self.bluetooth = BluefruitController(debug=self.debug_bluetooth)
-            print("[DANCE] BluefruitController created: %s" % str(self.bluetooth))
-            
-            # Simple validation - just check if we have a BLE radio like Intergalactic Cruising
-            if not self.bluetooth or not self.bluetooth.ble:
-                print("[DANCE] ❌ Bluetooth controller failed to initialize")
-                self.bluetooth = None
-                return
-                
-            print("[DANCE] ✅ Bluetooth controller validation passed")
-            
-            # Set device name for dance party - SIMPLIFIED
-            print("[DANCE] Setting device name...")
-            final_name = device_name + "_DANCE"
-            try:
-                print("[DANCE] Setting BLE name to: %s" % final_name)
-                self.bluetooth.ble.name = final_name
-                
-                # Set advertisement name - but don't fail if this doesn't work
-                if hasattr(self.bluetooth, 'advertisement') and self.bluetooth.advertisement:
-                    print("[DANCE] Setting advertisement name to: %s" % final_name)
-                    self.bluetooth.advertisement.complete_name = final_name
-                    print("[DANCE] ✅ Set Bluetooth name to: %s" % final_name)
-                else:
-                    print("[DANCE] ⚠️ No advertisement object found, using default name")
-            except Exception as name_error:
-                print("[DANCE] ⚠️ Could not set device name: %s" % str(name_error))
-                print("[DANCE] ⚠️ Continuing with default name...")
-            
-            print("[DANCE] Bluetooth initialization successful!")
-            self._bluetooth_init_success = True
-            print("[DANCE] 📱 Bluetooth available for multi-UFO sync")
-            
-        except ImportError as ie:
-            print("[DANCE] ❌ Import error - Bluetooth controller not available: %s" % str(ie))
-            self.bluetooth = None
-        except Exception as e:
-            print("[DANCE] ❌ Bluetooth initialization failed: %s" % str(e))
-            print("[DANCE] Error type: %s" % type(e).__name__)
-            self.bluetooth = None
-
-    def enable_bluetooth(self):
-        """Enable Bluetooth functionality."""
-        print("[DANCE] enable_bluetooth() called")
-        print("[DANCE] is_bluetooth_available(): %s" % self.is_bluetooth_available())
-        
-        if not self.is_bluetooth_available():
-            print("[DANCE] ❌ Bluetooth not available, cannot enable")
-            return False
-            
-        self.bluetooth_enabled = True
-        print("[DANCE] bluetooth_enabled set to True")
-        
-        try:
-            print("[DANCE] Starting advertising...")
-            if self.bluetooth.start_advertising():
-                print("[DANCE] ✅ Advertising started successfully")
-                print("[DANCE] 📡 Multi-UFO sync enabled - ready for followers!")
-                return True
-            else:
-                print("[DANCE] ❌ start_advertising() returned False")
-                return False
-        except Exception as e:
-            print("[DANCE] ❌ Error starting advertising: %s" % str(e))
-            return False
-
-    def is_bluetooth_available(self):
-        """Check if Bluetooth is available and properly initialized."""
-        return (self._bluetooth_init_success and
-                self.bluetooth is not None and
-                hasattr(self.bluetooth, 'ble') and
-                self.bluetooth.ble is not None)
-
-    def run(self, mode, volume):
-        """Run the multi-UFO dance party with leader-follower synchronization."""
-        # Determine effective mode (could be overridden by Bluetooth)
-        effective_mode = mode
-
-        # Increment debug counter
-        self.debug_counter += 1
-
-        # Basic run loop debug - every 100 cycles
-        if self.debug_counter % 100 == 0:
-            print("[DANCE] 🔄 Run loop cycle %d (bluetooth_enabled: %s)" % (self.debug_counter, self.bluetooth_enabled))
-
-        # Force garbage collection periodically to manage memory
-        if self.debug_counter % 100 == 0:
+        # light GC under debug
+        if self.debug_bluetooth and (self._seq % 50 == 0):
             gc.collect()
 
-        # Periodic advertising check (every 200 cycles = ~10 seconds for faster debugging)
-        if self.debug_counter % 200 == 0 and self.bluetooth_enabled:
-            print("[DANCE] 🔍 Periodic advertising check (cycle %d):" % self.debug_counter)
-            self.check_advertising_status()
+        time.sleep(0.001)
 
-        # Manage Bluetooth if available and enabled
-        if self.bluetooth_enabled and self.is_bluetooth_available():
+    # -------- Leader visuals --------
+    def _leader_frame(self):
+        """Render an audio-reactive baton with expressive beat pops."""
+        intensity = 140   # calmer default
+        color_type = self._ctype
+
+        if self._audio_ok:
             try:
-                self._manage_bluetooth_interaction()
-
-                # Check for mode override from Bluetooth
-                bt_mode = self.bluetooth.get_mode_override()
-                if bt_mode is not None:
-                    effective_mode = bt_mode
-                    if self._last_bt_mode != bt_mode:
-                        if self.debug:
-                            print(
-                                "[DANCE] Bluetooth mode override changed: %d" % effective_mode)
-                        self._last_bt_mode = bt_mode
-
-            except Exception as bt_error:
-                print("[DANCE] ❌ Bluetooth management error: %s" % str(bt_error))  # Always show BT errors
-
-        # Core dance processing with synchronization
-        try:
-            self._process_synchronized_dance(effective_mode, volume)
-        except Exception as e:
-            print("[DANCE] ❌ Dance processing error: %s" % str(e))
-
-    def _manage_bluetooth_interaction(self):
-        """Manage Bluetooth connections and synchronization commands."""
-        # Connection management
-        old_connected = self.bluetooth.is_connected()
-        self.bluetooth.manage_advertising()
-        self.bluetooth.check_connection()
-        new_connected = self.bluetooth.is_connected()
-
-        # Handle connection state changes
-        if old_connected != new_connected:
-            if old_connected and not new_connected:
-                self.bluetooth.handle_disconnection()
-
-        # Process commands if connected
-        if new_connected:
-            self.bluetooth.process_commands()
-
-            # Check for dance-specific sync commands
-            self._process_dance_sync_commands()
-
-    def _process_dance_sync_commands(self):
-        """Process dance synchronization commands between leader and followers."""
-        current_time = time.monotonic()
-
-        # Check for incoming sync commands from leader (if this is a follower)
-        if hasattr(self.bluetooth, 'connection') and self.bluetooth.connection:
-            # Add custom dance sync command processing here
-            # For now, we'll extend the existing bluetooth controller commands
-            pass
-
-        # Send sync commands to followers (if this is a leader and beat detected)
-        if self.is_leader and self.pending_beat_sync:
-            if current_time - self.last_sync_command_time > 0.1:  # Prevent spam
-                self._send_beat_sync_to_followers()
-                self.pending_beat_sync = False
-                self.last_sync_command_time = current_time
-
-    def _send_beat_sync_to_followers(self):
-        """Send beat synchronization command to all followers."""
-        try:
-            if self.bluetooth.connection and self.bluetooth.uart_service:
-                sync_msg = "DANCE_BEAT:%d:%d\n" % (int(time.monotonic() * 1000),
-                                                   self.beat_pattern_state)
-                self.bluetooth.uart_service.write(sync_msg.encode('utf-8'))
-                if self.debug:
-                    print("[DANCE] 📡 Beat sync sent to followers")
-        except Exception as e:
-            if self.debug:
-                print("[DANCE] Failed to send beat sync: %s" % str(e))
-
-    def _process_synchronized_dance(self, effective_mode, volume):
-        """Process dance with audio analysis and multi-UFO synchronization."""
-        color_func = self.get_color_function(effective_mode)
-
-        # Get audio samples for beat detection
-        try:
-            np_samples = self.audio.record_samples()
-            deltas = self.audio.compute_deltas(np_samples)
-
-            # Dance-optimized beat detection
-            beat_detected = self._dance_beat_detection(np_samples)
-            manual_beat = False
-
-            # Check for manual beat trigger from Bluetooth (like Intergalactic Cruising)
-            if self.bluetooth_enabled and self.is_bluetooth_available():
-                manual_beat = self.bluetooth.check_manual_beat()
-                if manual_beat:
-                    print("[DANCE] 📱 Bluetooth beat trigger!")
-                    beat_detected = True
-
-            # If this is the leader and we detected a beat, queue sync command
-            if self.is_leader and beat_detected and not manual_beat:
-                self.pending_beat_sync = True
-                self.beat_pattern_state = (
-                                                      self.beat_pattern_state + 1) % 8  # 8 beat cycle
-
-            self._update_dance_visualization(deltas, color_func, beat_detected, volume)
-
-        except MemoryError:
-            print("[DANCE] ❌ Memory error - switching to safe mode")
-            self._safe_mode_pattern(color_func)
-            gc.collect()
-
-    def _dance_beat_detection(self, np_samples):
-        """Enhanced beat detection optimized for dance synchronization."""
-        if len(np_samples) < 50:
-            return False
-
-        current_time = time.monotonic()
-        if current_time - self.last_beat_time < 0.2:  # Faster beats allowed for dancing
-            return False
-
-        try:
-            # Energy calculation optimized for dance beats
-            sample_count = min(len(np_samples), 300)
-            total_energy = 0
-
-            # Calculate mean
-            sample_sum = sum(np_samples[i] for i in range(sample_count))
-            mean_sample = sample_sum / sample_count
-
-            # Calculate energy with dance-optimized weighting
-            for i in range(sample_count):
-                diff = np_samples[i] - mean_sample
-                total_energy += diff * diff
-
-            energy = (total_energy / sample_count) ** 0.5
-
-            # Adaptive threshold based on recent energy levels
-            beat_detected = energy > self.energy_threshold
-
-            if self.debug_audio and self.debug_counter % 20 == 0:
-                print("[DANCE] Energy: %.1f, Threshold: %.1f, Beat: %s" %
-                      (energy, self.energy_threshold, beat_detected))
-
-            if beat_detected:
-                self.last_beat_time = current_time
+                samples = self.audio.record_samples()
+                if samples:
+                    n = min(len(samples), 200)
+                    if n > 0:
+                        ssum = 0.0
+                        mean = 0.0
+                        for i in range(n):
+                            mean += samples[i]
+                        mean = mean / n
+                        for i in range(n):
+                            d = samples[i] - mean
+                            ssum += d * d
+                        energy = (ssum / n) ** 0.5
+                        # Two-stage smoothing: fast LP + slower envelope
+                        self._energy_lp = 0.82 * self._energy_lp + 0.18 * energy
+                        if self._energy_lp > self._env:  # attack
+                            self._env = 0.60 * self._env + 0.40 * self._energy_lp
+                        else:  # decay
+                            self._env = 0.92 * self._env + 0.08 * self._energy_lp
+                        intensity = int(max(60, min(240, self._env)))
+                        # Quantize intensity to coarse steps (fewer states)
+                        intensity = (intensity // 32) * 32
+                        # Hysteretic color selection
+                        high_on, high_off = 208, 192
+                        mid_on, mid_off = 152, 136
+                        if self._ctype == 0 and intensity < high_off:
+                            self._ctype = 1
+                        elif self._ctype == 1 and intensity < mid_off:
+                            self._ctype = 2
+                        elif self._ctype == 1 and intensity > high_on:
+                            self._ctype = 0
+                        elif self._ctype == 2 and intensity > mid_on:
+                            self._ctype = 1
+                        color_type = self._ctype
+            except Exception as e:
                 if self.debug_audio:
-                    print("[DANCE] 🎵 DANCE BEAT! 🎵")
-                return True
+                    print("[DANCE] audio err:", e)
 
-        except MemoryError:
-            print("[DANCE] Beat detection memory error - using fallback")
-            return False
+        # Lightweight beat detect from envelope movement
+        beat_thr_on, beat_thr_off = 192, 168
+        if not self._beat_on and intensity >= beat_thr_on:
+            self._beat_on = True
+            self._beat_timer = 2                 # pop for ~2 frames
+            self._gap = 2                        # wider trail on beat
+            self._swing_ms = int(self._STEP_MS * 0.08)  # tiny forward swing
+            if intensity >= 224:
+                self._dir = -self._dir           # flip direction on big beat
+            self._spark_pos = (self._index + (2 * self._dir)) % self._NUM_PIXELS
+        elif self._beat_on and intensity <= beat_thr_off:
+            self._beat_on = False
 
-        return False
+        # Build 3 pixels: head + ONE trail + optional spark (3rd triple)
+        head_pos = self._index
+        trail1 = (head_pos - (1 * self._dir)) % self._NUM_PIXELS
+        trail2 = (head_pos - (self._gap * self._dir)) % self._NUM_PIXELS
 
-    def _update_dance_visualization(self, deltas, color_func, beat_detected, volume):
-        """Dance visualization with synchronized multi-UFO effects."""
-        current_time = time.monotonic()
+        head_int = intensity + (40 if self._beat_timer > 0 else 0)
+        if head_int > 255:
+            head_int = 255
+        t1_int = max(0, int(head_int * 0.55))
+        t2_int = 0
+        if self._spark_pos is not None:
+            trail2 = self._spark_pos
+            t2_int = min(255, int(head_int * 0.75))
 
-        # Get Bluetooth modifiers (similar to Intergalactic Cruising)
-        rotation_speed_mod = 1.0
-        effect_modifier = "normal"
-        brightness_override = None
-        color_override = None
+        # Convert color_type + intensity to RGB for local display
+        def themed_rgb(inten, ctype):
+            inten = int(inten)
+            if inten <= 0:
+                return (0, 0, 0)
+            if ctype == 0:   # red-ish
+                return (inten, int(inten * 0.15), int(inten * 0.15))
+            elif ctype == 1: # green-ish
+                return (int(inten * 0.15), inten, int(inten * 0.15))
+            else:            # blue/pink-ish
+                return (int(inten * 0.3), int(inten * 0.05), inten)
 
-        if self.bluetooth_enabled and self.is_bluetooth_available():
-            rotation_speed_mod = self.bluetooth.get_rotation_speed_modifier()
-            effect_modifier = self.bluetooth.get_effect_modifier()
-            brightness_override = self.bluetooth.get_brightness_override()
-            color_override = self.bluetooth.get_color_override()
+        # Draw leader pixels
+        self._clear_pixels()
+        cp.pixels[trail2] = themed_rgb(t2_int, color_type)
+        cp.pixels[trail1] = themed_rgb(t1_int, color_type)
+        cp.pixels[head_pos] = themed_rgb(head_int, color_type)
+        cp.pixels.show()
 
-        if beat_detected:
-            # Beat response - synchronized flash across all UFOs
-            self._display_beat_flash(color_func, color_override, brightness_override,
-                                     volume)
+        # Cache for advertisement build
+        self._last_triples = [
+            (head_pos, head_int, color_type),
+            (trail1,  t1_int,   color_type),
+            (trail2,  t2_int,   color_type),
+        ]
 
-        else:
-            # Continuous dance pattern with rotation
-            self._display_dance_pattern(deltas, color_func, rotation_speed_mod,
-                                        effect_modifier, color_override,
-                                        brightness_override)
+        # Decay one-frame spark and beat pop
+        if self._beat_timer > 0:
+            self._beat_timer -= 1
+        if self._beat_timer == 0:
+            self._spark_pos = None
 
-        self.last_update = current_time
+    def _advance_ring_if_due(self):
+        t = self._now_ms()
+        if t >= self._next_tick_ms:
+            self._index = (self._index + self._dir) % self._NUM_PIXELS
+            step = self._STEP_MS + (self._swing_ms if self._swing_ms else 0)
+            self._next_tick_ms = t + step   # schedule from now to avoid drift
+            self._swing_ms = 0
 
-    def _display_beat_flash(self, color_func, color_override, brightness_override,
-                            volume):
-        """Display synchronized beat flash across all pixels."""
+    # -------- Leader BLE --------
+    def _leader_advertise_if_due(self):
+        t = self._now_ms()
+        if (t - self._last_adv_ms) < self._ADV_PERIOD_MS:
+            return
+
+        name = self._build_adv_name_from_triples()
+        adv = Advertisement()
+        adv.complete_name = name
+
         try:
-            # Beat flash - all pixels same color (like current implementation but enhanced)
-            if color_override is not None:
-                flash_color = color_override
-            else:
-                flash_color = color_func(255)
-
-            # Apply brightness override
-            if brightness_override is not None:
-                flash_color = tuple(int(c * brightness_override) for c in flash_color)
-
-            for i in range(10):
-                self.hardware.pixels[i] = flash_color
-
-            self.hardware.pixels.show()
-
-            # Beat sound with pattern variation
-            if volume:
-                beat_freq = 800 + (
-                            self.beat_pattern_state * 50)  # Vary frequency by pattern state
-                self.hardware.play_tone_if_enabled(beat_freq, 0.1, volume)
-
-        except MemoryError:
-            print("[DANCE] Beat flash memory error")
-            self.hardware.clear_pixels()
-            self.hardware.pixels.show()
-
-    def _display_dance_pattern(self, deltas, color_func, speed_mod, effect_mod,
-                               color_override, brightness_override):
-        """Display continuous dance pattern with audio-reactive rotation."""
-        try:
-            current_time = time.monotonic()
-            time_delta = current_time - self.last_update
-
-            # Audio-reactive rotation (similar to Intergalactic Cruising)
-            pixel_data = self.hardware.map_deltas_to_pixels(
-                deltas) if deltas else [30] * 10
-
-            # Use average pixel intensity to drive rotation speed
-            avg_intensity = sum(pixel_data) / len(pixel_data) if pixel_data else 50
-            rotation_speed = max(0.5, avg_intensity * 0.01) * speed_mod
-
-            self.rotation_offset = (
-                                               self.rotation_offset + rotation_speed * time_delta * 5) % 10
-
-            # Clear pixels
-            self.hardware.clear_pixels()
-
-            # Create dancing wave pattern with rotation
-            wave_length = 3
-            for i in range(wave_length):
-                pos = int((self.rotation_offset + i * 2) % 10)
-
-                # Audio-reactive intensity
-                pixel_value = pixel_data[min(i, len(pixel_data) - 1)]
-                base_intensity = min(200, int(pixel_value * 2))
-                if effect_mod == "enhanced":
-                    base_intensity = min(255, int(base_intensity * 1.5))
-                elif effect_mod == "gentle":
-                    base_intensity = int(base_intensity * 0.7)
-
-                if base_intensity > 20:  # Lower threshold for continuous dance
-                    if color_override is not None:
-                        pixel_color = tuple(
-                            int(c * (base_intensity / 255.0)) for c in color_override)
-                    else:
-                        pixel_color = color_func(base_intensity)
-
-                    # Apply brightness override
-                    if brightness_override is not None:
-                        pixel_color = tuple(
-                            int(c * brightness_override) for c in pixel_color)
-
-                    self.hardware.pixels[pos] = pixel_color
-
-            self.hardware.pixels.show()
-
-        except MemoryError:
-            print("[DANCE] Dance pattern memory error")
-            self._safe_mode_pattern(color_func)
-
-    def _safe_mode_pattern(self, color_func):
-        """Ultra-simple pattern for when memory is critically low."""
-        current_time = time.monotonic()
-
-        # Single rotating pixel - minimal memory usage
-        if current_time - self.last_pattern_update > 0.3:
-            pos = int((current_time * 2) % 10)
-
-            self.hardware.clear_pixels()
-            self.hardware.pixels[pos] = color_func(100)
-            self.hardware.pixels.show()
-
-            self.last_pattern_update = current_time
-
-            if self.debug:
-                print("[DANCE] Safe mode - single pixel rotation")
-
-    # Bluetooth management methods (similar to Intergalactic Cruising)
-
-    def disable_bluetooth(self):
-        """Disable Bluetooth functionality."""
-        self.bluetooth_enabled = False
-
-        if self.is_bluetooth_available():
             try:
-                if hasattr(self.bluetooth, 'ble') and self.bluetooth.ble.advertising:
-                    self.bluetooth.ble.stop_advertising()
-                    print("[DANCE] Bluetooth sync disabled")
-            except Exception as e:
-                if self.debug:
-                    print("[DANCE] Error stopping Bluetooth: %s" % str(e))
-
-    def set_as_leader(self):
-        """Set this UFO as the dance leader."""
-        self.is_leader = True
-        print("[DANCE] 👑 This UFO is now the DANCE LEADER")
-
-    def set_as_follower(self):
-        """Set this UFO as a dance follower."""
-        self.is_leader = False
-        print("[DANCE] 💃 This UFO is now a DANCE FOLLOWER")
-
-    def cleanup(self):
-        """Clean up Dance Party resources."""
-        try:
-            print("[DANCE] 🧹 Cleaning up Dance Party...")
-
-            if self.bluetooth:
-                try:
-                    if hasattr(self.bluetooth, 'cleanup'):
-                        self.bluetooth.cleanup()
-                    else:
-                        if hasattr(self.bluetooth, 'ble') and self.bluetooth.ble:
-                            if self.bluetooth.ble.advertising:
-                                self.bluetooth.ble.stop_advertising()
-                except Exception as bt_cleanup_error:
-                    print("[DANCE] Bluetooth cleanup error: %s" % str(bt_cleanup_error))
-
-            self.bluetooth = None
-            self.audio = None
-
-            print("[DANCE] ✅ Dance Party cleanup completed")
-
+                self.ble.stop_advertising()
+            except Exception:
+                pass
+            self.ble.start_advertising(adv)
         except Exception as e:
-            print("[DANCE] ❌ Cleanup error: %s" % str(e))
+            if self.debug_bluetooth and (self._seq % 20 == 0):
+                print("[DANCE] ⚠️ ADV restart suppressed:", e)
+        finally:
+            self._last_adv_ms = t
 
-    def check_advertising_status(self):
-        """Check if the device is currently advertising - runtime debug method."""
-        if self.bluetooth and self.bluetooth.ble:
+    def _build_adv_name_from_triples(self):
+        # Use cached triples from the current frame; pad if needed
+        triples = getattr(self, "_last_triples", [])
+        while len(triples) < 3:
+            triples.append((0, 0, 0))
+        self._seq = (self._seq + 1) % 256
+        (p1,i1,c1) = triples[0]
+        (p2,i2,c2) = triples[1]
+        (p3,i3,c3) = triples[2]
+        name = "ILLO_%d_%d_%d_%d_%d_%d_%d_%d_%d_%d" % (
+            self._seq, p1, i1, c1, p2, i2, c2, p3, i3, c3
+        )
+        if self.debug_bluetooth and (self._seq % 20 == 0):
+            print("[DANCE] 📡 ADV:", name)
+        return name
+
+    # -------- Follower --------
+    def _follower_loop(self):
+        found = False
+
+        # Active scan to receive scan responses (name overflow)
+        for adv in self.ble.start_scan(
+            Advertisement, timeout=self._SCAN_BURST_S, minimum_rssi=-85, active=True
+        ):
+            adv_name = ""
             try:
-                is_advertising = self.bluetooth.ble.advertising
-                device_name = self.bluetooth.ble.name
-                print("[DANCE] 🔍 RUNTIME CHECK:")
-                print("[DANCE]   Advertising: %s" % is_advertising)
-                print("[DANCE]   Device name: '%s'" % device_name)
-                print("[DANCE]   BLE object: %s" % str(self.bluetooth.ble))
-                
-                # Try to get connection info
-                if hasattr(self.bluetooth, 'get_connection_info'):
-                    conn_info = self.bluetooth.get_connection_info()
-                    print("[DANCE]   Connection info: %s" % str(conn_info))
-                
-                return is_advertising
-            except Exception as e:
-                print("[DANCE] ❌ Error checking advertising status: %s" % str(e))
-                return False
-        else:
-            print("[DANCE] ❌ No bluetooth or BLE object available")
-            return False
+                if getattr(adv, "complete_name", None):
+                    adv_name = adv.complete_name
+                elif getattr(adv, "short_name", None):
+                    adv_name = adv.short_name
+            except Exception:
+                adv_name = ""
 
-    def get_status(self):
-        """Get detailed status information for debugging."""
-        status = {
-            'bluetooth_init_attempted': self._bluetooth_init_attempted,
-            'bluetooth_init_success': self._bluetooth_init_success,
-            'bluetooth_available': self.is_bluetooth_available(),
-            'bluetooth_enabled': self.bluetooth_enabled,
-            'is_leader': self.is_leader,
-            'beat_pattern_state': self.beat_pattern_state,
-            'debug_enabled': self.debug
-        }
+            if not adv_name or not adv_name.startswith("ILLO_"):
+                continue
 
-        if self.is_bluetooth_available():
-            try:
-                bt_info = self.bluetooth.get_connection_info()
-                status.update({
-                    'bluetooth_connected': bt_info.get('connected', False),
-                    'bluetooth_advertising': bt_info.get('advertising', False),
-                    'connection_count': bt_info.get('connection_count', 0)
-                })
-            except Exception as e:
-                if self.debug:
-                    print("[DANCE] Error getting Bluetooth info: %s" % str(e))
-                status['bluetooth_status'] = 'error_getting_info'
+            parsed = self._parse_name(adv_name)
+            if not parsed:
+                continue
 
-        return status
+            found = True
+            self._last_seen_t = time.monotonic()
+
+            # Only render new frames
+            if self._last_seq is None or parsed["seq"] != self._last_seq:
+                self._last_seq = parsed["seq"]
+                self._render_triples(parsed["triples"])
+                if self.debug_bluetooth and (self._last_seq % 20 == 0):
+                    print("[DANCE] 🔗 sync seq=%d" % self._last_seq)
+
+            break  # one good packet is enough per burst
+
+        self.ble.stop_scan()
+
+        # Loss handling
+        if not found and self._last_seen_t is not None:
+            if (time.monotonic() - self._last_seen_t) >= self._LOSS_TIMEOUT_S:
+                if self.debug_bluetooth:
+                    print("[DANCE] ❌ leader lost — clearing")
+                self._clear_pixels()
+                self._last_seq = None
+
+        time.sleep(0.003)
+
+    # -------- Parse & render --------
+    def _parse_name(self, name):
+        # ILLO_seq_p1_i1_c1_p2_i2_c2_p3_i3_c3
+        try:
+            parts = name.split("_")
+            # Expect exactly 11 parts: "ILLO", seq, then 9 ints (p/i/c * 3)
+            if len(parts) != 11:
+                return None
+            seq = int(parts[1])
+            vals = [int(x) for x in parts[2:11]]  # nine ints
+            triples = [(vals[0], vals[1], vals[2]),
+                       (vals[3], vals[4], vals[5]),
+                       (vals[6], vals[7], vals[8])]
+            # sanity clamp
+            clean = []
+            for (p,i,c) in triples:
+                if 0 <= p < self._NUM_PIXELS and 0 <= i <= 255 and 0 <= c <= 2:
+                    clean.append((p,i,c))
+                else:
+                    clean.append((0,0,0))
+            return {"seq": seq, "triples": clean}
+        except Exception:
+            return None
+
+    def _render_triples(self, triples):
+        # Rate-limit overall render to avoid thrash
+        now = self._now_ms()
+        if (now - self._last_render_ms) < self._MIN_RENDER_MS:
+            return
+
+        # Build target RGB for all 10 pixels from the 3 triples
+        target = [[0, 0, 0] for _ in range(self._NUM_PIXELS)]
+        for (pos, inten, ctype) in triples:
+            # Extra defensive casts (some stacks hand back smallints that confuse linters)
+            pos = int(pos)
+            inten = int(inten)
+            ctype = int(ctype)
+
+            if inten <= 0 or not (0 <= pos < self._NUM_PIXELS):
+                continue
+
+            # Map ILLO color types to RGB
+            if ctype == 0:  # red-ish
+                r = inten
+                g = int(inten * 0.15)
+                b = int(inten * 0.15)
+                # Ensure at least a whisper of red survives rounding + brightness
+                if r == 0 and inten > 0:
+                    r = 1
+            elif ctype == 1:  # green-ish
+                r = int(inten * 0.15)
+                g = inten
+                b = int(inten * 0.15)
+            else:  # blue/pink-ish
+                r = int(inten * 0.30)
+                g = int(inten * 0.05)
+                b = inten
+
+            target[pos] = [r, g, b]
+
+        # Exponential smoothing toward target; keep floats internally
+        a = self._SMOOTH_ALPHA
+        for i in range(self._NUM_PIXELS):
+            sr, sg, sb = self._smooth_rgb[i]
+            tr, tg, tb = target[i]
+            sr = sr + (tr - sr) * a
+            sg = sg + (tg - sg) * a
+            sb = sb + (tb - sb) * a
+            self._smooth_rgb[i] = [sr, sg, sb]
+            # cast + clamp for NeoPixel
+            r = 0 if sr < 0 else (255 if sr > 255 else int(sr + 0.5))
+            g = 0 if sg < 0 else (255 if sg > 255 else int(sg + 0.5))
+            b = 0 if sb < 0 else (255 if sb > 255 else int(sb + 0.5))
+            cp.pixels[i] = (r, g, b)
+
+        cp.pixels.show()
+        self._last_render_ms = now
+
+    # -------- BLE init --------
+    def _initialize_ble(self):
+        try:
+            self.ble = BLERadio()
+            self.sync_active = True
+            if self.is_leader:
+                # Seed initial adv; if it fails, loop will retry
+                try:
+                    name = "ILLO_0_0_0_0_0_0_0_0_0_0"
+                    adv = Advertisement()
+                    adv.complete_name = name
+                    try:
+                        self.ble.stop_advertising()
+                    except Exception:
+                        pass
+                    self.ble.start_advertising(adv)
+                except Exception as e:
+                    if self.debug_bluetooth:
+                        print("[DANCE] ⚠️ initial advertising deferred:", e)
+            print("[DANCE] ✅ BLE ready (leader=%s)" % ("Y" if self.is_leader else "N"))
+        except Exception as e:
+            print("[DANCE] ❌ BLE init failed:", e)
+            self.sync_active = False
+
+    # -------- Pixels --------
+    def _clear_pixels(self):
+        cp.pixels.fill((0, 0, 0))
+        cp.pixels.show()
+
+    # -------- Utils --------
+    @staticmethod
+    def _now_ms():
+        return int(time.monotonic() * 1000)
+
+    def _load_dance_config(self):
+        try:
+            from config_manager import ConfigManager
+            return ConfigManager().load_config()
+        except Exception:
+            return {'is_leader': False, 'bluetooth_enabled': True}

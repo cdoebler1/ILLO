@@ -47,9 +47,9 @@ class InteractionManager:
                 'light_brightness': True
             },
             4: {  # Dance Party - all interactions
-                'tap': True,
-                'shake': True,
-                'light_interactions': True,
+                'tap': False,
+                'shake': False,
+                'light_interactions': False,
                 'light_brightness': True
             }
         }

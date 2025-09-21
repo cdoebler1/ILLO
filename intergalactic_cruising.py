@@ -14,24 +14,25 @@ class IntergalacticCruising(BaseRoutine):
         self.rotation_offset = 0
 
         # Debug flag - can be enabled via config
+        # Debug flag - can be enabled via config or external call
         self.debug = False
-        self.debug_counter = 0  # Counter for periodic debug messages
-        self._last_bt_mode = None  # Track last Bluetooth mode for change detection
+        self.debug_counter = 0
+        self._last_bt_mode = None
 
-        # Bluetooth initialization state tracking
-        self._bluetooth_init_attempted = False
-        self._bluetooth_init_success = False
-        self.bluetooth = None  # Initialize bluetooth attribute
-        self.bluetooth_enabled = False  # Initialize bluetooth_enabled here too
+        # Simplified Bluetooth state tracking
+        self.bluetooth = None
+        self.bluetooth_enabled = False
 
-        # Read configuration for Bluetooth setup with better error handling
+        # Read configuration for Bluetooth setup
         device_name, bluetooth_config_enabled = self._load_configuration()
 
-        # Initialize Bluetooth with robust error recovery
-        self._initialize_bluetooth(device_name, bluetooth_config_enabled)
+        # Initialize Bluetooth if enabled in config
+        if bluetooth_config_enabled:
+            self._initialize_bluetooth(device_name)
 
         print("[CRUISER] Intergalactic Cruising initialized - Audio visualization")
-        print("[CRUISER] Device name: %s" % device_name)
+        if self.debug:  # Only show device name in debug mode
+            print("[CRUISER] Device name: %s" % device_name)
 
     def _load_configuration(self):
         """Load configuration with proper error handling."""
@@ -46,52 +47,37 @@ class IntergalacticCruising(BaseRoutine):
             print("[CRUISER] Config read error: %s, using defaults" % str(e))
             return 'UFO_CRUISER', True
 
-    def _initialize_bluetooth(self, device_name, bluetooth_config_enabled):
-        """Initialize Bluetooth with robust error handling and recovery."""
-        self._bluetooth_init_attempted = True
-
-        if not bluetooth_config_enabled:
-            self.bluetooth = None
-            print("[CRUISER] Bluetooth disabled in config - improved performance mode")
-            return
-
+    def _initialize_bluetooth(self, device_name):
+        """Initialize Bluetooth with simplified error handling."""
         try:
             from bluetooth_controller import BluefruitController
-
-            # Initialize Bluetooth controller with debug disabled by default
             self.bluetooth = BluefruitController(debug=False)
 
-            # Validate Bluetooth initialization
-            if not self.bluetooth or not hasattr(self.bluetooth,
-                                                 'ble') or not self.bluetooth.ble:
-                print("[CRUISER] ⚠️ Bluetooth initialization incomplete")
-                self.bluetooth = None
-                return
-
-            # Set device name after successful initialization
-            try:
+            # Validate basic initialization
+            if self.bluetooth and hasattr(self.bluetooth, 'ble') and self.bluetooth.ble:
+                # Set device name
                 self.bluetooth.ble.name = device_name
-                if hasattr(self.bluetooth,
-                           'advertisement') and self.bluetooth.advertisement:
+                if hasattr(self.bluetooth, 'advertisement'):
                     self.bluetooth.advertisement.complete_name = device_name
-                    print("[CRUISER] Set Bluetooth name to: %s" % device_name)
-            except Exception as name_error:
-                print("[CRUISER] ⚠️ Could not set device name: %s" % str(name_error))
-
-            self._bluetooth_init_success = True
-            print("[CRUISER] Bluetooth available (enabled in config)")
+                print("[CRUISER] Bluetooth available: %s" % device_name)
+                return True
+            else:
+                print("[CRUISER] Bluetooth initialization incomplete")
+                self.bluetooth = None
+                return False
 
         except ImportError:
-            print("[CRUISER] ⚠️ Bluetooth controller not available (import failed)")
+            print("[CRUISER] Bluetooth controller not available")
             self.bluetooth = None
+            return False
         except Exception as e:
-            print("[CRUISER] ❌ Bluetooth initialization failed: %s" % str(e))
+            print("[CRUISER] Bluetooth initialization failed: %s" % str(e))
             self.bluetooth = None
+            return False
 
     def is_bluetooth_available(self):
-        """Check if Bluetooth is available and properly initialized."""
-        return (self._bluetooth_init_success and
-                self.bluetooth is not None and
+        """Check if Bluetooth is available."""
+        return (self.bluetooth is not None and
                 hasattr(self.bluetooth, 'ble') and
                 self.bluetooth.ble is not None)
 
@@ -153,19 +139,9 @@ class IntergalacticCruising(BaseRoutine):
         # Use inherited method for color function selection
         color_func = self.get_color_function(effective_mode)
 
-        # Reduced debug frequency - only every 50 cycles
-        if self.debug and self.debug_counter % 50 == 0:
-            print("[CRUISER] Running with mode: %d, volume: %s" % (effective_mode,
-                                                                   volume))
-
         # Process audio and update display
         np_samples = self.audio.record_samples()
         deltas = self.audio.compute_deltas(np_samples)
-
-        # Less frequent audio debug
-        if self.debug and len(np_samples) > 0 and self.debug_counter % 200 == 0:
-            print("[CRUISER] Audio samples: %d, Deltas: %d" % (len(np_samples),
-                                                               len(deltas)))
 
         self._update_visualization(deltas, color_func, volume)
 
@@ -341,6 +317,8 @@ class IntergalacticCruising(BaseRoutine):
             self.bluetooth.disable_debug()
         print("[CRUISER] Bluetooth debug disabled")
 
+    # ... existing code ...
+
     def test_uart_service(self):
         """Test if UART service is working by sending a test message."""
         if self.bluetooth_enabled and self.bluetooth.connection and self.bluetooth.uart_service:
@@ -360,7 +338,6 @@ class IntergalacticCruising(BaseRoutine):
         """Gentle rotating animation when no audio detected, with Bluetooth color override."""
         current_time = time.monotonic()
 
-        # Much less frequent idle debug
         if self.debug and self.debug_counter % 1000 == 0:
             print("[CRUISER] Idle animation active")
 
@@ -411,57 +388,12 @@ class IntergalacticCruising(BaseRoutine):
             self.hardware.pixels.show()
             self.last_update = current_time
 
-    def check_advertising_status(self):
-        """Check if the device is currently advertising."""
-        if self.bluetooth and self.bluetooth.ble:
-            is_advertising = self.bluetooth.ble.advertising
-            device_name = self.bluetooth.ble.name
-            print("[CRUISER] Advertising: %s, Device name: '%s'" % (is_advertising,
-                                                                    device_name))
-            return is_advertising
-        return False
-
-    def cleanup(self):
-        """Clean up Intergalactic Cruising resources."""
-        try:
-            print("[CRUISER] 🧹 Cleaning up Intergalactic Cruising...")
-
-            # Clean up Bluetooth resources if available
-            if self.bluetooth:
-                try:
-                    if hasattr(self.bluetooth, 'cleanup'):
-                        self.bluetooth.cleanup()
-                    else:
-                        # Fallback cleanup
-                        if hasattr(self.bluetooth, 'ble') and self.bluetooth.ble:
-                            if self.bluetooth.ble.advertising:
-                                self.bluetooth.ble.stop_advertising()
-                        if hasattr(self.bluetooth,
-                                   'connection') and self.bluetooth.connection:
-                            if hasattr(self.bluetooth.connection, 'disconnect'):
-                                self.bluetooth.connection.disconnect()
-                except Exception as bt_cleanup_error:
-                    print(
-                        "[CRUISER] Bluetooth cleanup error: %s" % str(bt_cleanup_error))
-
-            # Clear references
-            self.bluetooth = None
-            self.audio = None
-
-            print("[CRUISER] ✅ Intergalactic Cruising cleanup completed")
-
-        except Exception as e:
-            print("[CRUISER] ❌ Cleanup error: %s" % str(e))
-
     def get_status(self):
-        """Get detailed status information for debugging."""
+        """Get basic status information."""
         status = {
-            'bluetooth_init_attempted': self._bluetooth_init_attempted,
-            'bluetooth_init_success': self._bluetooth_init_success,
             'bluetooth_available': self.is_bluetooth_available(),
             'bluetooth_enabled': self.bluetooth_enabled,
-            'debug_enabled': self.debug,
-            'debug_counter': self.debug_counter
+            'debug_enabled': self.debug
         }
 
         if self.is_bluetooth_available():
@@ -469,50 +401,24 @@ class IntergalacticCruising(BaseRoutine):
                 bt_info = self.bluetooth.get_connection_info()
                 status.update({
                     'bluetooth_connected': bt_info.get('connected', False),
-                    'bluetooth_advertising': bt_info.get('advertising', False),
-                    'connection_count': bt_info.get('connection_count', 0)
+                    'bluetooth_advertising': bt_info.get('advertising', False)
                 })
-            except (OSError, RuntimeError, AttributeError, KeyError) as e:
-                if self.debug:
-                    print("[CRUISER] Error getting Bluetooth info: %s" % str(e))
-                status['bluetooth_status'] = 'error_getting_info'
+            except Exception:
+                status['bluetooth_status'] = 'error'
 
         return status
 
-    def recover_from_bluetooth_error(self):
-        """Attempt to recover from Bluetooth errors."""
-        if not self._bluetooth_init_attempted:
-            return False
-
+    def cleanup(self):
+        """Clean up Intergalactic Cruising resources."""
         try:
-            print("[CRUISER] 🔄 Attempting Bluetooth recovery...")
+            if self.bluetooth and hasattr(self.bluetooth, 'cleanup'):
+                self.bluetooth.cleanup()
 
-            # Try to reinitialize if the original attempt was successful
-            if self._bluetooth_init_success:
-                device_name, bluetooth_config_enabled = self._load_configuration()
-                self._initialize_bluetooth(device_name, bluetooth_config_enabled)
+            # Clear references
+            self.bluetooth = None
+            self.audio = None
 
-                if self.is_bluetooth_available():
-                    print("[CRUISER] ✅ Bluetooth recovery successful")
-                    return True
-
-            print("[CRUISER] ❌ Bluetooth recovery failed")
-            return False
+            print("[CRUISER] Cleanup completed")
 
         except Exception as e:
-            print("[CRUISER] ❌ Bluetooth recovery error: %s" % str(e))
-            return False
-
-    def save_bluetooth_mode_to_config(self):
-        """Optional: Save current Bluetooth mode override to config."""
-        try:
-            if self.bluetooth.bluetooth_mode_override is not None:
-                from config_manager import ConfigManager
-                config_mgr = ConfigManager()
-                config = config_mgr.load_config()
-                config['mode'] = self.bluetooth.bluetooth_mode_override
-                config_mgr.save_config(config)
-                print(
-                    "[CRUISER] Saved mode %d to config" % self.bluetooth.bluetooth_mode_override)
-        except Exception as e:
-            print("[CRUISER] Could not save mode to config: %s" % str(e))
+            print("[CRUISER] Cleanup error: %s" % str(e))
