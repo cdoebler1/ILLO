@@ -190,18 +190,7 @@ def main():
         """Save configuration if changes are pending."""
         nonlocal config_changed
         if config_changed:
-            config.update({
-                'routine': routine,
-                'mode': mode,
-                'name': name,
-                'college_spirit_enabled': college_spirit_enabled,
-                'college': college,
-                'ufo_persistent_memory': ufo_persistent_memory,
-                'college_chant_detection_enabled': college_chant_detection_enabled,
-                'bluetooth_enabled': bluetooth_enabled,
-                # Meditation settings are handled directly by the meditation routine
-                # and don't need to be updated here unless we add UI controls for them
-            })
+            # ConfigManager.save_config() handles field extraction and defaults
             config_mgr.save_config(config)
             config_changed = False
             print("[SCHEDULER] 💾 Config auto-saved")
