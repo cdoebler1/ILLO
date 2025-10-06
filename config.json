@@ -1,14 +1,14 @@
 {
-  "routine": 4,
-  "mode": 1,
   "name": "ILLO_1",
+  "routine": 1,
+  "mode": 1,
+  "bluetooth_enabled": true,
   "college": "penn_state",
   "college_spirit_enabled": true,
-  "college_chant_detection_enabled": false,
   "ufo_persistent_memory": true,
-  "bluetooth_enabled": true,
   "meditate_breath_pattern": 1,
   "meditate_adaptive_timing": true,
   "meditate_ultra_dim": true,
-  "is_leader": true
+  "is_leader": true,
+  "college_chant_detection_enabled": false
 }
