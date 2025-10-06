@@ -66,12 +66,13 @@ target_board = "circuitplayground_bluefruit"
 main_file = "code.py"
 firmware_version = "9.0.4"
 required_libraries = [
-    "adafruit_circuitplayground",
-    "neopixel", 
     "adafruit_ble",
     "adafruit_bluefruit_connect",
-    "simpleio",
-    "ulab"
+    "adafruit_circuitplayground",
+    "adafruit_lis3dh.mpy",
+    "adafruit_thermistor.mpy",
+    "neopixel",
+    "simpleio"
 ]
 
 # Hardware specifications - Production Grade
@@ -84,7 +85,7 @@ ram_memory = "256KB"
 platform = "magnetic_levitation_ufo"
 enclosure = "recycled_petg_3d_printed"
 manufacturing = "made_in_usa"
-power_source = "rechargeable_battery"
+power_source = "rechargeable_battery: 880 mAh CR123 recommended"
 features = [
     "bluetooth_5_0_le",
     "10x_rgb_neopixels", 

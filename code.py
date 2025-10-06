@@ -188,8 +188,11 @@ def main():
         
     def config_save_task():
         """Save configuration if changes are pending."""
-        nonlocal config_changed
+        nonlocal config_changed, config
         if config_changed:
+            # Update the config dictionary with current values before saving
+            config['routine'] = routine
+            config['mode'] = mode
             # ConfigManager.save_config() handles field extraction and defaults
             config_mgr.save_config(config)
             config_changed = False
@@ -285,9 +288,11 @@ def main():
         if new_routine != routine:
             # This should rarely execute since Button A reboots
             routine = new_routine
+            config['routine'] = routine  # Update config dict
             
         if new_mode != mode:
             mode = new_mode
+            config['mode'] = mode  # Update config dict
             
         if button_config_changed:
             config_changed = True
