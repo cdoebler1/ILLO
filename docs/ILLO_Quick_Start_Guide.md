@@ -16,7 +16,9 @@
 
 ---
 
-## 🕹️ ILLO Operating Routines (Button A)
+## 🕹️ ILLO Operation
+
+### Routine Selection (Button A)
 
 | Routine                        | Button A Value | Visual Indicator | Description                                     | Special Features                                                      |
 |--------------------------------|----------------|------------------|-------------------------------------------------|-----------------------------------------------------------------------|
@@ -31,7 +33,7 @@
 |-------------------------------|----------------------------------------------|----------------------------|----------------------------|--------------------------|
 | **🧠 AI Intelligence**        | Rainbow wheel                                | Pink colors                | Blue colors                | Green colors             |
 | **🌌 Intergalactic Cruising** | Rainbow wheel                                | Pink colors                | Blue colors                | Green colors             |
-| **🧘 Meditate**               | 4-7-8 breathing (inhale 4, hold 7, exhale 8) | Box breathing (4-4-4-4)    | Triangle breathing (4-4-8) | Custom breathing pattern |
+| **🧘 Meditate**               | 4-7-8 breathing (inhale 4, hold 7, exhale 8) | Box breathing (4-4-4-4)    | Triangle breathing (4-4-8) | Deep relaxation          |
 | **🕺 Dance Party**            | Leader (broadcasts)                          | Follower (syncs to leader) | Reserved for future use    | Reserved for future use  |
 
 ### Universal Controls
