@@ -26,12 +26,12 @@ class TaskScheduler:
     Simple task scheduler for managing periodic operations.
     Optimizes performance by controlling when different operations run.
     """
-    
+
     def __init__(self):
         """Initialize the task scheduler."""
         self.tasks = {}
         self.last_run = {}
-        
+
     def add_task(self, name, interval, callback, enabled=True):
         """
         Add a scheduled task.
@@ -40,7 +40,7 @@ class TaskScheduler:
             name: Task identifier
             interval: Seconds between executions
             callback: Function to call
-            enabled: Whether task is initially enabled
+            enabled: Whether a task is initially enabled
         """
         self.tasks[name] = {
             'interval': interval,
@@ -48,17 +48,17 @@ class TaskScheduler:
             'enabled': enabled
         }
         self.last_run[name] = 0
-        
+
     def enable_task(self, name):
         """Enable a scheduled task."""
         if name in self.tasks:
             self.tasks[name]['enabled'] = True
-            
+
     def disable_task(self, name):
         """Disable a scheduled task."""
         if name in self.tasks:
             self.tasks[name]['enabled'] = False
-            
+
     def run_due_tasks(self, current_time):
         """
         Run all tasks that are due to execute.
@@ -70,11 +70,11 @@ class TaskScheduler:
             List of task names that were executed
         """
         executed_tasks = []
-        
+
         for name, task in self.tasks.items():
             if not task['enabled']:
                 continue
-                
+
             if current_time - self.last_run[name] >= task['interval']:
                 try:
                     task['callback']()
@@ -82,7 +82,7 @@ class TaskScheduler:
                     executed_tasks.append(name)
                 except Exception as e:
                     print("[SCHEDULER] ❌ Task %s failed: %s" % (name, str(e)))
-                    
+
         return executed_tasks
 
 
@@ -151,22 +151,21 @@ def main():
     config = config_mgr.load_config()
     memory_mgr = MemoryManager(enable_debug=debug_memory)
     interaction_mgr = InteractionManager(enable_debug=debug_interactions)
-    
+
     # Initialize scheduler
     scheduler = TaskScheduler()
 
-    # Extract configuration values with safe defaults
+    # Extract all configuration values upfront
     routine = config.get('routine', 1)
     mode = config.get('mode', 1)
-    name = config.get('name', 'UFO')
-    college_spirit_enabled = config.get('college_spirit_enabled', False)
-    college = config.get('college', '')
+    _name = config.get('name', 'ILLO')  # Passed via config dict to routines
+    _bluetooth_enabled = config.get('bluetooth_enabled', True)  # Passed via config dict
+    _college = config.get('college', 'none')  # Passed via config dict
+    _college_spirit_enabled = config.get('college_spirit_enabled', False)  # Passed via config dict
     ufo_persistent_memory = config.get('ufo_persistent_memory', False)
-    college_chant_detection_enabled = config.get('college_chant_detection_enabled', False)
-    bluetooth_enabled = config.get('bluetooth_enabled', True)
-    
-    # Meditation configuration - only extracted if needed to avoid memory usage
-    # These will be loaded directly by the meditation routine when needed
+    _meditate_adaptive_timing = config.get('meditate_adaptive_timing', True)  # Passed via config dict
+    _meditate_ultra_dim = config.get('meditate_ultra_dim', True)  # Passed via config dict
+    _college_chant_detection_enabled = config.get('college_chant_detection_enabled', False)  # Reserved for future use
 
     # System initialization
     _fs_is_writable = _fs_writable_check()
@@ -178,14 +177,13 @@ def main():
     last_button_a_time = 0
     last_button_b_time = 0
     button_debounce_delay = 0.3
-    config_save_timer = 0
     config_changed = False
 
     # Scheduled task functions
     def memory_cleanup_task():
         """Periodic memory cleanup task."""
         memory_mgr.periodic_cleanup()
-        
+
     def config_save_task():
         """Save configuration if changes are pending."""
         nonlocal config_changed, config
@@ -197,16 +195,16 @@ def main():
             config_mgr.save_config(config)
             config_changed = False
             print("[SCHEDULER] 💾 Config auto-saved")
-    
+
     def system_status_task():
         """Periodic system status reporting."""
         import gc
-        print("[SCHEDULER] 📊 Memory: %d bytes free, Routine: %d, Mode: %d" % 
+        print("[SCHEDULER] 📊 Memory: %d bytes free, Routine: %d, Mode: %d" %
               (gc.mem_free(), routine, mode))
-    
-    # Setup scheduled tasks
+
+    # Setup of scheduled tasks
     scheduler.add_task('memory_cleanup', 30.0, memory_cleanup_task)  # Every 30 seconds
-    scheduler.add_task('config_save', 3.0, config_save_task)         # Every 3 seconds
+    scheduler.add_task('config_save', 3.0, config_save_task)  # Every 3 seconds
     scheduler.add_task('system_status', 60.0, system_status_task, enabled=debug_memory)  # Every minute if debug enabled
 
     # Display startup status
@@ -237,34 +235,30 @@ def main():
         volume = cp.switch
         loop_count += 1
 
-        # Run scheduled tasks
-        executed_tasks = scheduler.run_due_tasks(current_time)
-
         # Routine management - lazy instantiation
         if routine != active_routine_number:
             if current_routine_instance:
-                # Call cleanup method if available
+                # Call a cleanup method if available
                 if hasattr(current_routine_instance, 'cleanup'):
                     current_routine_instance.cleanup()
 
                 memory_mgr.cleanup_before_routine_change()
                 del current_routine_instance
 
-                # Force garbage collection after deleting heavy routine
+                # Force garbage collection after deleting a heavy routine
                 import gc
                 gc.collect()
                 print("[SYSTEM] Memory freed, available: %d bytes" % gc.mem_free())
 
             interaction_mgr.setup_for_routine(routine)
             current_routine_instance = create_routine_instance(
-                routine, name, _persist_this_run, college_spirit_enabled,
-                college, bluetooth_enabled, debug_bluetooth, debug_audio
+                routine, config, debug_bluetooth, debug_audio
             )
 
             if current_routine_instance:
                 active_routine_number = routine
                 print("✅ Loaded routine %d" % routine)
-                
+
                 # Adjust task scheduling based on routine
                 if routine == 1:  # UFO Intelligence - more frequent cleanup
                     scheduler.tasks['memory_cleanup']['interval'] = 20.0
@@ -281,7 +275,7 @@ def main():
         # Button handling (high priority - run every loop)
         new_routine, new_mode, last_button_a_time, last_button_b_time, button_config_changed = handle_button_interactions(
             routine, mode, last_button_a_time, last_button_b_time,
-            button_debounce_delay, current_time, current_routine_instance
+            button_debounce_delay, current_time
         )
 
         # Update variables if changed (Button A will reboot, so this mainly handles Button B)
@@ -289,14 +283,13 @@ def main():
             # This should rarely execute since Button A reboots
             routine = new_routine
             config['routine'] = routine  # Update config dict
-            
+
         if new_mode != mode:
             mode = new_mode
             config['mode'] = mode  # Update config dict
-            
+
         if button_config_changed:
             config_changed = True
-            config_save_timer = current_time
 
         # Execute routine (high priority - run every loop)
         if current_routine_instance:
@@ -311,19 +304,14 @@ def main():
             loop_start_time = current_time
 
 
-def create_routine_instance(routine, name, _persist_this_run, college_spirit_enabled,
-                            college, bluetooth_enabled, bt_debug, audio_debug):
+def create_routine_instance(routine, config, bt_debug, audio_debug):
     """
-    Create a routine instance based on routine number.
-    Uses lazy imports to save memory by only loading needed routines.
+    Create a routine instance based on a routine number.
+    Uses lazy imports to save memory by only loading the necessary routines.
     
     Args:
         routine: Routine number (1-4)
-        name: Device name
-        _persist_this_run: Whether to enable persistent memory
-        college_spirit_enabled: Whether college spirit is enabled
-        college: College name
-        bluetooth_enabled: Whether Bluetooth is enabled in config
+        config: Configuration dictionary with all settings
         bt_debug: Bluetooth debug flag
         audio_debug: Audio debug flag
     
@@ -331,6 +319,20 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
         routine instance or None
     """
     instance = None
+
+    # Extract configuration values needed by routines
+    name = config.get('name', 'ILLO')
+    bluetooth_enabled = config.get('bluetooth_enabled', True)
+    college_spirit_enabled = config.get('college_spirit_enabled', False)
+    college = config.get('college', 'none')
+    ufo_persistent_memory = config.get('ufo_persistent_memory', False)
+    meditate_adaptive_timing = config.get('meditate_adaptive_timing', True)
+    meditate_ultra_dim = config.get('meditate_ultra_dim', True)
+    # Note: is_leader removed - Dance Party now uses mode value
+
+    # System initialization for UFO Intelligence
+    _fs_is_writable = _fs_writable_check() if routine == 1 else False
+    _persist_this_run = bool(ufo_persistent_memory and _fs_is_writable)
 
     try:
         if routine == 1:
@@ -359,36 +361,39 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
             from intergalactic_cruising import IntergalacticCruising
             instance = IntergalacticCruising()
 
-            # Only enable Bluetooth if both config allows it AND it was initialized
+            # Only enable Bluetooth if the config allows it AND it was initialized
             if bluetooth_enabled and hasattr(instance,
                                              'bluetooth') and instance.bluetooth:
                 print("[SYSTEM] 📱 Enabling Bluetooth control...")
                 instance.enable_bluetooth()
-                # Remove this line: instance.enable_debug()  # Don't auto-enable debug
             else:
                 print("[SYSTEM] 🏃 High-performance mode (Bluetooth disabled)")
 
         elif routine == 3:
             print("[SYSTEM] Loading Meditate...")
             from meditate import Meditate
-            instance = Meditate()
+            instance = Meditate(
+                adaptive_timing=meditate_adaptive_timing,
+                ultra_dim=meditate_ultra_dim
+            )
 
         elif routine == 4:
             print("[SYSTEM] Loading Dance Party...")
             from dance_party import DanceParty
-            instance = DanceParty(name, bt_debug, audio_debug)
+            # Dance Party now determines leader/follower from mode value
+            instance = DanceParty(
+                name,
+                bt_debug,
+                audio_debug
+            )
 
             # Enable Bluetooth for Dance Party if configured and available
-            # Note: Dance Party uses SyncManager, not bluetooth attribute
             if bluetooth_enabled and hasattr(instance, 'enable_bluetooth'):
                 print("[SYSTEM] 📱 Enabling Bluetooth for Dance Party sync...")
                 success = instance.enable_bluetooth()
                 if success:
                     print("[SYSTEM] ✅ Dance Party Bluetooth sync enabled")
-                    if hasattr(instance, 'is_leader') and instance.is_leader:
-                        print("[SYSTEM] 👑 Ready to lead dance synchronization")
-                    else:
-                        print("[SYSTEM] 💃 Ready for dance synchronization")
+                    print("[SYSTEM] 💃 Role will be determined by Button B (Mode 1=Leader, Mode 2=Follower)")
                 else:
                     print("[SYSTEM] ❌ Failed to enable Dance Party Bluetooth")
             else:
@@ -416,43 +421,19 @@ def create_routine_instance(routine, name, _persist_this_run, college_spirit_ena
 
 
 def handle_meditation_pattern_change():
-    """Handle Button B press during meditation to change breathing patterns."""
-    try:
-        # Load current config
-        from config_manager import ConfigManager
-        config_mgr = ConfigManager()
-        config = config_mgr.load_config()
-
-        # Get current pattern and cycle to next
-        current_pattern = config.get('meditate_breath_pattern', 1)
-        new_pattern = (current_pattern % 4) + 1
-
-        # Update config
-        config['meditate_breath_pattern'] = new_pattern
-        success = config_mgr.save_config(config)
-
-        # Show visual feedback for breathing pattern change
-        show_breathing_pattern_feedback(new_pattern)
-
-        if success:
-            print("🫁 Breathing pattern changed to %d and saved" % new_pattern)
-        else:
-            print("🫁 Breathing pattern changed to %d (save failed)" % new_pattern)
-
-        return new_pattern
-
-    except Exception as e:
-        print("❌ Error changing meditation pattern: %s" % str(e))
-        return None
+    """DEPRECATED: Handle Button B press during meditation to change breathing patterns."""
+    # This function is deprecated as meditation now uses standard mode changes via Button B
+    # Kept for backward compatibility but does nothing
+    print("[MEDITATE] ⚠️ Breathing pattern now controlled by standard mode selection (Button B)")
+    return None
 
 
 def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_time,
-                               button_debounce_delay, current_time,
-                               current_routine_instance):
+                               button_debounce_delay, current_time):
     """
     Handle button A and B interactions with debouncing.
     Button A now saves config and reboots for clean routine switching.
-    Button B is context-aware: breathing patterns in Meditation, color modes elsewhere.
+    Button B cycles through color modes (1-4) for ALL routines including Meditation.
 
     Returns:
         tuple: (new_routine, new_mode, new_last_button_a_time, new_last_button_b_time, config_changed)
@@ -488,7 +469,7 @@ def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_
                 cp.pixels.show()
 
                 print("🚀 Rebooting for clean routine switch...")
-                time.sleep(0.5)  # Brief pause for user to see message
+                time.sleep(0.5)  # Brief pause for the user to see a message
 
                 # Perform soft reset
                 import microcontroller
@@ -505,32 +486,32 @@ def handle_button_interactions(routine, mode, last_button_a_time, last_button_b_
 
         last_button_a_time = current_time
 
-        # If we reach here, the save failed and we're falling back to normal behavior
+        # If we reach here, the save failed, and we're falling back to normal behavior
         time.sleep(0.8)
         cp.pixels.fill((0, 0, 0))
         cp.pixels.show()
         routine = new_routine
 
-    # Handle button B: context-aware behavior based on current routine
+    # Handle button B: change color modes for ALL routines (including Meditation)
     if cp.button_b and (current_time - last_button_b_time > button_debounce_delay):
+        mode = (mode % 4) + 1  # Cycle through modes 1-4
+        show_mode_feedback(mode)
+        config_changed = True
 
-        if routine == 3:  # Meditation mode - change breathing patterns
-            new_pattern = handle_meditation_pattern_change()
+        # For Meditation routine, show breathing pattern feedback
+        if routine == 3:
+            show_breathing_pattern_feedback(mode)
+            print("[MEDITATE] 🧘 Mode %d = %s" % (mode, {
+                1: "4-7-8 Breathing",
+                2: "Box Breathing",
+                3: "Triangle Breathing",
+                4: "Deep Relaxation"
+            }.get(mode, "Unknown")))
 
-            # Tell the meditation routine about the change directly
-            if new_pattern and current_routine_instance and hasattr(
-                    current_routine_instance, 'update_pattern'):
-                current_routine_instance.update_pattern(new_pattern)
-
-        else:  # All other routines - change color modes
-            mode = (mode % 4) + 1  # Cycle through modes 1-4
-            show_mode_feedback(mode)
-            config_changed = True
-
-            # Brief delay to show feedback, then clear
-            time.sleep(0.8)
-            cp.pixels.fill((0, 0, 0))
-            cp.pixels.show()
+        # Brief delay to show feedback, then clear
+        time.sleep(0.8)
+        cp.pixels.fill((0, 0, 0))
+        cp.pixels.show()
 
         last_button_b_time = current_time
 
@@ -551,7 +532,7 @@ def show_breathing_pattern_feedback(pattern):
 
     info = pattern_info.get(pattern, {"color": (255, 255, 255), "name": "Unknown"})
 
-    # Show breathing pattern with unique visual - expand from center
+    # Show breathing pattern with unique visual - expand from the center
     center_pixels = [4, 5]
     for pos in center_pixels:
         cp.pixels[pos] = info["color"]
