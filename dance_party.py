@@ -32,7 +32,7 @@ class DanceParty(BaseRoutine):
 
     # Timing (slower, follower-friendly)
     _STEP_MS = 260           # visual step; adv matches this (≈3.8 revs/min)
-    _ADV_PERIOD_MS = 260     # advertising refresh cadence (aligned with step)
+    _ADV_PERIOD_MS = 260     # advertising refresh cadence (aligned with a step)
     _SCAN_BURST_S = 0.35     # follower scan burst (active scan)
     _LOSS_TIMEOUT_S = 3.0    # follower loss detection
     _MIN_RENDER_MS = 30      # ~33 FPS cap (rate limit follower render)
@@ -46,8 +46,10 @@ class DanceParty(BaseRoutine):
 
         # Config
         self.config = self._load_dance_config()
-        self.is_leader = bool(self.config.get('is_leader', False))
         self.sync_enabled = bool(self.config.get('bluetooth_enabled', True))
+        
+        # Mode will be set by run() method - no is_leader in __init__
+        self.is_leader = False  # Default. This will be updated based on mode in run()
 
         # BLE
         self.ble = None
@@ -63,7 +65,7 @@ class DanceParty(BaseRoutine):
         # Expressive motion state (leader)
         self._dir = 1                # +1 or -1
         self._gap = 1                # trail spacing (1 or 2)
-        self._swing_ms = 0           # ± jitter applied to next step after beats
+        self._swing_ms = 0           # ± jitter applied to the next step after beats
         self._beat_on = False
         self._beat_timer = 0         # frames remaining for "pop"
         self._spark_pos = None       # transient spark position (uses third triple)
@@ -81,7 +83,7 @@ class DanceParty(BaseRoutine):
             except Exception as e:
                 if self.debug_audio:
                     print("[DANCE] ⚠️ Audio init failed:", e)
-        # Smoothed energy, envelope & hysteretic color (leader)
+        # Smoothed energy, envelope and hysteretic color (leader)
         self._energy_lp = 120.0
         self._env = 120.0
         self._ctype = 2  # 0=red, 1=green, 2=blue/pink-ish
@@ -119,6 +121,17 @@ class DanceParty(BaseRoutine):
 
     # -------- Main loop --------
     def run(self, mode, volume):
+        # Determine leader/follower based on a mode
+        # Mode 1 = Leader, Mode 2 = Follower
+        new_is_leader = (mode == 1)
+        
+        # If the role has changed, reinitialize BLE if needed
+        if new_is_leader != self.is_leader:
+            self.is_leader = new_is_leader
+            print("[DANCE] 🔄 Role changed to: %s" % ("LEADER" if self.is_leader else "FOLLOWER"))
+            if self.sync_enabled and not self.sync_active:
+                self._initialize_ble()
+        
         if not self.sync_active:
             # Local fallback: still show audio baton if possible
             self._leader_frame()     # draw current frame
@@ -160,7 +173,7 @@ class DanceParty(BaseRoutine):
                             d = samples[i] - mean
                             ssum += d * d
                         energy = (ssum / n) ** 0.5
-                        # Two-stage smoothing: fast LP + slower envelope
+                        # Two-stage smoothing: fast LP plus slower envelope
                         self._energy_lp = 0.82 * self._energy_lp + 0.18 * energy
                         if self._energy_lp > self._env:  # attack
                             self._env = 0.60 * self._env + 0.40 * self._energy_lp
@@ -212,17 +225,17 @@ class DanceParty(BaseRoutine):
             trail2 = self._spark_pos
             t2_int = min(255, int(head_int * 0.75))
 
-        # Convert color_type + intensity to RGB for local display
+        # Convert color_type + intensity to RGB for a local display
         def themed_rgb(inten, ctype):
             inten = int(inten)
             if inten <= 0:
-                return (0, 0, 0)
+                return 0, 0, 0
             if ctype == 0:   # red-ish
-                return (inten, int(inten * 0.15), int(inten * 0.15))
+                return inten, int(inten * 0.15), int(inten * 0.15)
             elif ctype == 1: # green-ish
-                return (int(inten * 0.15), inten, int(inten * 0.15))
+                return int(inten * 0.15), inten, int(inten * 0.15)
             else:            # blue/pink-ish
-                return (int(inten * 0.3), int(inten * 0.05), inten)
+                return int(inten * 0.3), int(inten * 0.05), inten
 
         # Draw leader pixels
         self._clear_pixels()
@@ -441,7 +454,8 @@ class DanceParty(BaseRoutine):
             self.sync_active = False
 
     # -------- Pixels --------
-    def _clear_pixels(self):
+    @staticmethod
+    def _clear_pixels():
         cp.pixels.fill((0, 0, 0))
         cp.pixels.show()
 
@@ -450,7 +464,8 @@ class DanceParty(BaseRoutine):
     def _now_ms():
         return int(time.monotonic() * 1000)
 
-    def _load_dance_config(self):
+    @staticmethod
+    def _load_dance_config():
         try:
             from config_manager import ConfigManager
             return ConfigManager().load_config()

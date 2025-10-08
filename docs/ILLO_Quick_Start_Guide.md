@@ -16,23 +16,23 @@
 
 ---
 
-## 🕹️ ILLO Operating Routines & Controls
+## 🕹️ ILLO Operating Routines (Button A)
 
-| Routine                        | Button A Value | Visual Indicator | Description                                     | Button B Function         | Special Features                                                      |
-|--------------------------------|----------------|------------------|-------------------------------------------------|---------------------------|-----------------------------------------------------------------------|
-| **🧠 AI Intelligence**         | 1 (Default)    | 1 purple         | Interactive AI companion that learns and adapts | Change colors/themes      | Touch/tap to wake AI, shake for turbulence, wave hand for interaction |
-| **🌌 Intergalactic Cruising**  | 2              | 2 green          | Ambient lighting with auto-brightness           | Change colors/themes      | Bluetooth control via Adafruit Bluefruit Connect app                  |
-| **🧘 Meditate**                | 3              | 3 blue           | Relaxation breathing patterns (4 techniques)    | Change breathing patterns | Interactions disabled, ultra-dim option available                     |
-| **🕺 Dance Party**             | 4              | 4 orange         | Beat detection and music-reactive light shows   | Change colors/themes      | Music synchronization, enhanced with steady beat music                |
+| Routine                        | Button A Value | Visual Indicator | Description                                     | Special Features                                                      |
+|--------------------------------|----------------|------------------|-------------------------------------------------|-----------------------------------------------------------------------|
+| **🧠 AI Intelligence**         | 1 (Default)    | 1 purple         | Interactive AI companion that learns and adapts | Touch/tap to wake AI, shake for turbulence, wave hand for interaction |
+| **🌌 Intergalactic Cruising**  | 2              | 2 green          | Ambient lighting with auto-brightness           | Bluetooth control via Adafruit Bluefruit Connect app                  |
+| **🧘 Meditate**                | 3              | 3 blue           | Relaxation breathing patterns (4 techniques)    | Interactions disabled, ultra-dim option available                     |
+| **🕺 Dance Party**             | 4              | 4 orange         | Beat detection and music-reactive light shows   | Music synchronization, enhanced with steady beat music                |
 
-### Mode Settings for Each Routine
+### Mode Settings for Each Routine (Button B)
 
-| Routine                       | Mode 1                                                                                                         | Mode 2                  | Mode 3                     | Mode 4                    |
-|-------------------------------|----------------------------------------------------------------------------------------------------------------|-------------------------|----------------------------|---------------------------|
-| **🧠 AI Intelligence**        | Rainbow wheel                                                                                                  | Pink colors             | Blue colors                | Green colors              |
-| **🌌 Intergalactic Cruising** | Rainbow wheel                                                                                                  | Pink colors             | Blue colors                | Green colors              |
-| **🧘 Meditate**               | 4-7-8 breathing (inhale 4, hold 7, exhale 8)                                                                   | Box breathing (4-4-4-4) | Triangle breathing (4-4-8) | Custom breathing pattern  |
-| **🕺 Dance Party**            | <td colspan="4">Audio-reactive (automatic color selection based on beat intensity and frequency analysis)</td> |        
+| Routine                       | Mode 1                                       | Mode 2                     | Mode 3                     | Mode 4                   |
+|-------------------------------|----------------------------------------------|----------------------------|----------------------------|--------------------------|
+| **🧠 AI Intelligence**        | Rainbow wheel                                | Pink colors                | Blue colors                | Green colors             |
+| **🌌 Intergalactic Cruising** | Rainbow wheel                                | Pink colors                | Blue colors                | Green colors             |
+| **🧘 Meditate**               | 4-7-8 breathing (inhale 4, hold 7, exhale 8) | Box breathing (4-4-4-4)    | Triangle breathing (4-4-8) | Custom breathing pattern |
+| **🕺 Dance Party**            | Leader (broadcasts)                          | Follower (syncs to leader) | Reserved for future use    | Reserved for future use  |
 
 ### Universal Controls
 
@@ -91,7 +91,7 @@ Copy these libraries from the [Adafruit CircuitPython Bundle](https://circuitpyt
     - **LEFT** = Sound enabled
     - **RIGHT** = Sound disabled (longer battery life)
 2. **Power on** - ILLO will start in AI Intelligence mode (rainbow colors)
-3. **Watch for the startup light sequence** - indicates successful boot
+3. **Watch for the startup light sequence**—indicates a successful boot
 
 ---
 
@@ -123,7 +123,7 @@ Enabling it may cause system instability or crashes.
 
 1. Switch to **Intergalactic Cruising mode** (Button A until mode 2)
 2. Open **Adafruit Bluefruit Connect** app on your phone
-3. Look for device named **ILLO_x** (where x is your device name)
+3. Look for a device named **ILLO_x** (where x is your device name)
 4. Connect via **UART** feature
 
 ### Commands
@@ -146,17 +146,15 @@ Open `config.json` on your computer to customize:
 "routine": 1, // Default mode (1-4)
 "mode": 1, // Default color mode (1-4)
 "bluetooth_enabled": true, // Enable Bluetooth (Intergalactic Cruising mode)
-"college_spirit_enabled": true, // Enable team colors (Penn State only)
-"college": "penn_state", // Your team (for colors only)
-"volume": 0, // 0=silent, 1=sound
+"college_spirit_enabled": true, // Enable team colors
+"college": "penn_state", // Your team
 "ufo_persistent_memory": true, // AI learns and remembers
-"meditate_breath_pattern": 1,
 "meditate_adaptive_timing": true,
 "meditate_ultra_dim": true,
-"is_leader": true, // Set to true for multi-ILLO sync
 "college_chant_detection_enabled": false // KEEP THIS FALSE - memory intensive
 
-```
+---
+
 ### Memory & Storage Modes
 **USB Connection Behavior:**
 - : Testing mode (read-only protection) **Slide LEFT + USB**
@@ -165,13 +163,13 @@ Open `config.json` on your computer to customize:
 
 ## 🔧 Troubleshooting
 ### ILLO Won't Start
-- ✅ Check CircuitPython 9.0.4 with ulab is installed
+- ✅ Check CircuitPython 9.0.4 is installed
 - ✅ Verify all required libraries are in folder `lib/`
 - ✅ Ensure all files are in the root directory `.py`
 - ✅ Check that has valid JSON syntax `config.json`
 
 ### No Lights/Dim Lights
-- 💡 ILLO auto-adjusts brightness - try different lighting conditions
+- 💡 ILLO auto-adjusts brightness—try different lighting conditions
 - 💡 Check battery level if using battery power
 - 💡 Wave hand over device to trigger interaction
 - 💡 Try pressing Button B to cycle color modes
@@ -204,6 +202,6 @@ Open `config.json` on your computer to customize:
 - **Music Fun**: Dance Party mode works best with steady beat music
 - : Multiple ILLOs can sync their light shows via Bluetooth **Multi-ILLO**
 - **Battery Life**: Sound-off modes significantly extend operating time
-- **Memory Conservation**: Keep all audio detection features disabled for best performance
+- **Memory Conservation**: Keep all audio detection features disabled for the best performance
 
 **Welcome to the ILLO family! Your AI UFO companion is ready to learn, adapt, and become your unique levitating friend.**

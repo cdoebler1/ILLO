@@ -7,12 +7,17 @@ from adafruit_circuitplayground import cp
 
 
 class Meditate(BaseRoutine):
-    def __init__(self):
+    def __init__(self, adaptive_timing=None, ultra_dim=None):
         super().__init__()
 
-        # Load meditation preferences from config
-        self.breath_pattern = self._load_breath_pattern()
-        self.adaptive_timing = self._load_adaptive_timing()
+
+        if adaptive_timing is not None:
+            self.adaptive_timing = adaptive_timing
+        else:
+            self.adaptive_timing = self._load_adaptive_timing()
+        
+        # Store ultra_dim setting (not currently used but available for future brightness control)
+        self.ultra_dim = ultra_dim if ultra_dim is not None else True
 
         # Breathing pattern definitions
         self.breath_patterns = {
@@ -38,25 +43,19 @@ class Meditate(BaseRoutine):
 
         # Disable all interactions for pure meditation
         self.ignore_interactions = True
+        
+        # Track last pattern mode to detect changes
+        self.last_pattern_mode = None
 
-        current_pattern = self.breath_patterns[self.breath_pattern]
         print("[MEDITATE] 🧘 Enhanced Meditate initialized")
-        print("[MEDITATE] Pattern: %s (Adaptive: %s)" % (
-            current_pattern["name"],
-            "ON" if self.adaptive_timing else "OFF"
+        print("[MEDITATE] Breathing pattern controlled by Button B (Mode 1-4)")
+        print("[MEDITATE] Adaptive: %s, Ultra-dim: %s" % (
+            "ON" if self.adaptive_timing else "OFF",
+            "ON" if self.ultra_dim else "OFF"
         ))
 
-    def _load_breath_pattern(self):
-        """Load breath pattern preference from config."""
-        try:
-            from config_manager import ConfigManager
-            config_mgr = ConfigManager()
-            config = config_mgr.load_config()
-            return config.get('meditate_breath_pattern', 1)
-        except:
-            return 1  # Default to 4-7-8 breathing
-
-    def _load_adaptive_timing(self):
+    @staticmethod
+    def _load_adaptive_timing():
         """Load adaptive timing preference from config."""
         try:
             from config_manager import ConfigManager
@@ -67,29 +66,19 @@ class Meditate(BaseRoutine):
             return True  # Default enabled
 
     def run(self, mode, volume):
-        """Run the enhanced meditate routine - completely silent and non-reactive."""
+        """Run the enhanced 'meditate' routine - completely silent and non-reactive."""
         current_time = time.monotonic()
 
-        # Control update frequency for smooth meditation experience
+        # Control update frequency for a smooth meditation experience
         if current_time - self.last_update < self.update_delay:
             return
 
         self.last_update = current_time
         color_func = self.get_color_function(mode)
 
-        # Force silent operation - meditation should never make sound
-        self._breathing_pattern(color_func, volume=0)  # Always silent
-
-    def update_pattern(self, new_pattern):
-        """Update breathing pattern when changed via Button B."""
-        if new_pattern != self.breath_pattern:
-            old_pattern_name = self.breath_patterns[self.breath_pattern]["name"]
-            self.breath_pattern = new_pattern
-            self.start_time = time.monotonic()  # Reset cycle timing for smooth transition
-
-            new_pattern_name = self.breath_patterns[self.breath_pattern]["name"]
-            print("[MEDITATE] 🔄 Pattern updated: %s -> %s" % (old_pattern_name,
-                                                              new_pattern_name))
+        # Use mode value as the breathing pattern (1-4) to select breathing pattern
+        # Volume is ignored - meditation is always silent
+        self._breathing_pattern(color_func, pattern_mode=mode)
 
     def _calculate_adaptive_timing(self):
         """Calculate timing multiplier based on ambient light if enabled."""
@@ -107,12 +96,12 @@ class Meditate(BaseRoutine):
         else:  # Normal indoor lighting
             return 1.0  # Standard timing
 
-    def _breathing_pattern(self, color_func, volume):
+    def _breathing_pattern(self, color_func, pattern_mode):
         """Enhanced breathing pattern with multiple techniques."""
         current_time = time.monotonic()
 
-        # Get current pattern settings
-        pattern = self.breath_patterns[self.breath_pattern]
+        # Use pattern_mode (which is mode 1-4) to select a breathing pattern
+        pattern = self.breath_patterns[pattern_mode]
         timing_multiplier = self._calculate_adaptive_timing()
 
         # Calculate total cycle time with adaptive timing
@@ -127,7 +116,6 @@ class Meditate(BaseRoutine):
         inhale_duration = pattern["inhale"] * timing_multiplier
         hold1_duration = pattern["hold1"] * timing_multiplier
         exhale_duration = pattern["exhale"] * timing_multiplier
-        hold2_duration = pattern["hold2"] * timing_multiplier
 
         inhale_end = inhale_duration / total_cycle_time
         hold1_end = (inhale_duration + hold1_duration) / total_cycle_time
@@ -164,8 +152,11 @@ class Meditate(BaseRoutine):
         # Update display with pattern-specific visualization
         self._update_meditation_display(color_func, intensity, current_phase, pattern)
 
-        # Phase transition logging (silent - no sounds ever in meditation)
+        # Print breathing pattern at start of each breath cycle or when a pattern changes
         if current_phase != self.last_phase:
+            if current_phase == "inhale" or pattern_mode != self.last_pattern_mode:
+                print("[MEDITATE] 🫁 %s" % pattern["name"])
+                self.last_pattern_mode = pattern_mode
             self.last_phase = current_phase
 
     def _update_meditation_display(self, color_func, intensity, phase, pattern):
@@ -188,7 +179,7 @@ class Meditate(BaseRoutine):
         elif phase in ["hold1", "hold2"]:
             self._show_hold_pattern(color_func, intensity, phase)
         else:  # exhale
-            # Use the same expansion pattern as inhale for smooth reverse effect
+            # Use the same expansion pattern as inhale for a smooth reverse effect
             self._show_expansion_pattern(color_func, intensity, pattern)
 
         # Show the pixels
@@ -224,7 +215,7 @@ class Meditate(BaseRoutine):
                         self.hardware.pixels[pos] = color_func(fade_intensity)
 
     def _show_hold_pattern(self, color_func, intensity, phase):
-        """Show steady pattern during hold phases."""
+        """Show a steady pattern during hold phases."""
         if phase == "hold2":
             # Second hold - very minimal presence
             center_pixels = [4, 5]
@@ -235,9 +226,8 @@ class Meditate(BaseRoutine):
             for i in range(10):
                 self.hardware.pixels[i] = color_func(intensity)
 
-
     def _show_contraction_pattern(self, color_func, intensity, pattern):
-        """Show contraction during exhale - uses inhale pattern in reverse."""
+        """Show contraction during an exhalation - uses an inhalation pattern in reverse."""
         # Use the same expansion logic as inhale, but in reverse
         # This creates perfect symmetry between inhale and exhale
 
@@ -250,7 +240,7 @@ class Meditate(BaseRoutine):
         for pos in center_pixels:
             self.pixels_cache[pos] = color
 
-        # Use same pattern-specific expansion as inhale
+        # Use the same pattern-specific expansion as inhale
         if pattern["name"] == "Box Breathing":
             # Square expansion pattern (same as inhale)
             if expansion_level > 1:

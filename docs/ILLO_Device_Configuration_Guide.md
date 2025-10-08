@@ -13,7 +13,7 @@ Below are detailed descriptions of each configuration field.
 
 - **Purpose**: Device identifier for Bluetooth and logging
 - **Usage**: Used for BLE advertising and device identification
-- **Default**: `"UFO"`
+- **Default**: `"ILLO"`
 - **Notes**: Useful when running multiple ILLO devices for identification
 
 ### College Spirit Features
@@ -54,22 +54,19 @@ Below are detailed descriptions of each configuration field.
 
 #### `mode` (integer 1-4)
 
-- **Purpose**: Default color theme selection
+- **Purpose**: Default color theme or behavior selection
 - **Options**:
-    - `1`: Rainbow spectrum colors (default)
-    - `2`: Pink color variations
-    - `3`: Blue color variations
-    - `4`: College team colors (when `college_spirit_enabled = true`)
-
-### Audio Settings
-
-#### `volume` (integer 0-1)
-
-- **Purpose**: Default sound setting
-- **Options**:
-    - `0`: Silent mode (lights only; default)
-    - `1`: Sound enabled (lights + audio tones)
-- **Notes**: Physical slide switch overrides this setting during operation
+    - **AI Intelligence, Intergalactic Cruising**:
+        - `1`: Rainbow spectrum colors (default)
+        - `2`: Pink color variations
+        - `3`: Blue color variations
+        - `4`: Green color variations
+    - **Meditation**:
+        - Controlled by `meditate_breath_pattern` (Button B cycles patterns)
+    - **Dance Party**:
+        - `1`: Leader mode (broadcasts to followers)
+        - `2`: Follower mode (syncs to leader)
+        - `3-4`: Reserved for future use
 
 ### Meditation Configuration
 
@@ -109,20 +106,16 @@ Below are detailed descriptions of each configuration field.
 
 ### Debug Settings
 
-#### `debug_bluetooth` (boolean)
+**Note**: Debug settings are now configured in `code.py` as module-level constants rather than in `config.json`. This
+prevents accidental enabling of memory-intensive debug features.
 
-- **Purpose**: Enable/disable Bluetooth debug logging
+#### `bluetooth_enabled` (boolean)
+
+- **Purpose**: Enable/disable Bluetooth features
 - **Options**:
-    - `true`: Show BLE connection, scanning, and sync details in console
-    - `false`: Hide Bluetooth debug messages (default)
-- **Notes**: Bluetooth sync currently disabled for memory optimization
-
-#### `debug_audio` (boolean)
-
-- **Purpose**: Enable/disable audio processing debug logging
-- **Options**:
-    - `true`: Show beat detection, music analysis, and audio energy levels
-    - `false`: Hide audio processing debug messages (default)
+    - `true`: Enables Bluetooth for Intergalactic Cruising and Dance Party sync (default)
+    - `false`: Disables all Bluetooth features for improved performance
+- **Notes**: Affects Intergalactic Cruising remote control and Dance Party multi-device sync
 
 ## Hardware Controls
 
@@ -198,7 +191,7 @@ The slide switch position during boot determines the device's operational mode:
 
 - **Fight Songs**: "Fight On State" with authentic musical notes
 - **Team Colors**: Blue and white color schemes
-- **Chant Recognition**: "We Are Penn State" and other crowd chants
+- **Chant Recognition**: (disabled) "We Are Penn State" and other crowd chants
 - **Spirit Tracking**: AI develops team loyalty over time
 - **Random Pride**: Spontaneous team color displays
 

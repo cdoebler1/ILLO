@@ -14,8 +14,7 @@ except ImportError:
 
 class UFOIntelligence(BaseRoutine):
     def __init__(self, device_name=None, debug_bluetooth=False, debug_audio=False,
-                 persistent_memory=False, college_spirit_enabled=True,
-                 college="penn_state"):
+                 persistent_memory=False, college_spirit_enabled=True, college="penn_state"):
         super().__init__()
 
         # Core components - initialize audio processor early
