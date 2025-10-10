@@ -16,7 +16,21 @@
 
 ---
 
-## 🕹️ ILLO Operating Routines (Button A)
+## 🕹️ ILLO Operation
+
+### Universal Controls
+
+| Control                | Function                             | Works In All Routines |
+|------------------------|--------------------------------------|-----------------------|
+| **Button A**           | Cycle through routines (1→2→3→4→1)   | ✅ Yes                 |
+| **Button B**           | Cycle through modes (1→2→3→4→1)      | ✅ Yes                 |
+| **Slide Switch LEFT**  | Sound enabled (more power usage)     | ✅ Yes                 |
+| **Slide Switch RIGHT** | Sound disabled (longer battery)      | ✅ Yes                 |
+| **Touch/Tap**          | Interact with AI/wake up             | 🧠 AI Mode only       |
+| **Shake**              | Turbulence effects and energy bursts | 🧠 AI Mode only       |
+| **Wave Hand**          | Light sensor interaction             | 🧠 AI Mode only       |
+
+### Routine Selection (Button A)
 
 | Routine                        | Button A Value | Visual Indicator | Description                                     | Special Features                                                      |
 |--------------------------------|----------------|------------------|-------------------------------------------------|-----------------------------------------------------------------------|
@@ -31,19 +45,8 @@
 |-------------------------------|----------------------------------------------|----------------------------|----------------------------|--------------------------|
 | **🧠 AI Intelligence**        | Rainbow wheel                                | Pink colors                | Blue colors                | Green colors             |
 | **🌌 Intergalactic Cruising** | Rainbow wheel                                | Pink colors                | Blue colors                | Green colors             |
-| **🧘 Meditate**               | 4-7-8 breathing (inhale 4, hold 7, exhale 8) | Box breathing (4-4-4-4)    | Triangle breathing (4-4-8) | Custom breathing pattern |
+| **🧘 Meditate**               | 4-7-8 breathing (inhale 4, hold 7, exhale 8) | Box breathing (4-4-4-4)    | Triangle breathing (4-4-8) | Deep relaxation          |
 | **🕺 Dance Party**            | Leader (broadcasts)                          | Follower (syncs to leader) | Reserved for future use    | Reserved for future use  |
-
-### Universal Controls
-
-| Control                | Function                             | Works In All Routines |
-|------------------------|--------------------------------------|-----------------------|
-| **Button A**           | Cycle through routines (1→2→3→4→1)   | ✅ Yes                 |
-| **Slide Switch LEFT**  | Sound enabled (more power usage)     | ✅ Yes                 |
-| **Slide Switch RIGHT** | Sound disabled (longer battery)      | ✅ Yes                 |
-| **Touch/Tap**          | Interact with AI/wake up             | 🧠 AI Mode only       |
-| **Shake**              | Turbulence effects and energy bursts | 🧠 AI Mode only       |
-| **Wave Hand**          | Light sensor interaction             | 🧠 AI Mode only       |
 
 ---
 
