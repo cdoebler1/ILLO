@@ -63,7 +63,8 @@ class UFOIntelligence(BaseRoutine):
                 print(
                     "[UFO AI] 🎤 Chant detection: DISABLED (random college behaviors active)")
 
-    def _load_chant_detection_setting(self):
+    @staticmethod
+    def _load_chant_detection_setting():
         """Load chant detection setting using ConfigManager consistently."""
         try:
             from config_manager import ConfigManager
