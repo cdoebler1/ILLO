@@ -355,21 +355,12 @@ def create_routine_instance(routine, config, bt_debug, audio_debug):
             instance = DanceParty(name, bt_debug, audio_debug)
 
             if bluetooth_enabled and hasattr(instance, 'enable_bluetooth'):
-                print("[SYSTEM] 📱 Enabling Bluetooth for Dance Party sync...")
                 success = instance.enable_bluetooth()
-                if success:
-                    print("[SYSTEM] ✅ Dance Party Bluetooth sync enabled")
-                    print(
-                        "[SYSTEM] 💃 Role will be determined by Button B (Mode 1=Leader, Mode 2=Follower)")
-                else:
-                    print("[SYSTEM] ❌ Failed to enable Dance Party Bluetooth")
-            else:
-                print("[SYSTEM] 🏃 Dance Party in standalone mode (Bluetooth disabled)")
-                if not bluetooth_enabled:
-                    print("[SYSTEM]   Reason: Bluetooth disabled in config")
-
+                if not success and bt_debug:
+                    print("[SYSTEM] ⚠️ Dance Party Bluetooth init issue")
+            
             if bt_debug:
-                print("[SYSTEM] Dance Party ready with beat detection")
+                print("[SYSTEM] Dance Party ready — Role determined by Button B (Mode 1=Leader, 2+=Follower)")
 
         return instance
 
