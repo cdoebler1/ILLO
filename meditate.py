@@ -10,18 +10,17 @@ class Meditate(BaseRoutine):
     def __init__(self, adaptive_timing=None, ultra_dim=None):
         super().__init__()
 
-
         if adaptive_timing is not None:
             self.adaptive_timing = adaptive_timing
         else:
             self.adaptive_timing = self._load_adaptive_timing()
-        
+
         # Store ultra_dim setting (not currently used but available for future brightness control)
         self.ultra_dim = ultra_dim if ultra_dim is not None else True
 
         # Breathing pattern definitions
         self.breath_patterns = {
-            1: {"name": "4-7-8 Breathing", "inhale": 4.8, "hold1": 2.4, "exhale": 4.8,
+            1: {"name": "4-7-8 Breathing", "inhale": 4.0, "hold1": 7.0, "exhale": 8.0,
                 "hold2": 0},
             2: {"name": "Box Breathing", "inhale": 4.0, "hold1": 4.0, "exhale": 4.0,
                 "hold2": 4.0},
@@ -38,12 +37,10 @@ class Meditate(BaseRoutine):
 
         # Cache for smoother performance
         self.last_intensity = -1
-        self.last_expansion_level = -1
-        self.pixels_cache = [None] * 10
 
         # Disable all interactions for pure meditation
         self.ignore_interactions = True
-        
+
         # Track last pattern mode to detect changes
         self.last_pattern_mode = None
 
@@ -110,7 +107,7 @@ class Meditate(BaseRoutine):
 
         # Calculate cycle position (0 to 1)
         cycle_position = ((
-                                      current_time - self.start_time) % total_cycle_time) / total_cycle_time
+                                  current_time - self.start_time) % total_cycle_time) / total_cycle_time
 
         # Calculate phase boundaries
         inhale_duration = pattern["inhale"] * timing_multiplier
@@ -120,7 +117,7 @@ class Meditate(BaseRoutine):
         inhale_end = inhale_duration / total_cycle_time
         hold1_end = (inhale_duration + hold1_duration) / total_cycle_time
         exhale_end = (
-                                 inhale_duration + hold1_duration + exhale_duration) / total_cycle_time
+                             inhale_duration + hold1_duration + exhale_duration) / total_cycle_time
         # hold2 is the remainder
 
         # Determine current phase and intensity
@@ -225,35 +222,3 @@ class Meditate(BaseRoutine):
             # First hold - full steady presence
             for i in range(10):
                 self.hardware.pixels[i] = color_func(intensity)
-
-    def _show_contraction_pattern(self, color_func, intensity, pattern):
-        """Show contraction during an exhalation - uses an inhalation pattern in reverse."""
-        # Use the same expansion logic as inhale, but in reverse
-        # This creates perfect symmetry between inhale and exhale
-
-        # Calculate expansion level the same way as inhale
-        expansion_level = (intensity / 255.0) * 5
-    
-        # Start with center pixels (same as inhale)
-        center_pixels = [4, 5]
-        color = color_func(intensity)
-        for pos in center_pixels:
-            self.pixels_cache[pos] = color
-
-        # Use the same pattern-specific expansion as inhale
-        if pattern["name"] == "Box Breathing":
-            # Square expansion pattern (same as inhale)
-            if expansion_level > 1:
-                square_pixels = [3, 6, 2, 7]
-                for i, pos in enumerate(square_pixels):
-                    if expansion_level > i + 1:
-                        fade_intensity = int(intensity * min(1.0, expansion_level - i - 1))
-                        self.pixels_cache[pos] = color_func(fade_intensity)
-        else:
-            # Circular expansion for other patterns (same as inhale)
-            expansion_rings = [[3, 6], [2, 7], [1, 8], [0, 9]]
-            for i, ring in enumerate(expansion_rings):
-                if expansion_level > i + 1:
-                    for pos in ring:
-                        fade_intensity = int(intensity * min(1.0, expansion_level - i - 1))
-                        self.pixels_cache[pos] = color_func(fade_intensity)

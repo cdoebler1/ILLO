@@ -17,7 +17,7 @@ import os
 # Debug Configuration - Set these flags to enable debug output
 debug_bluetooth = False
 debug_audio = False
-debug_memory = True
+debug_memory = False
 debug_interactions = False
 
 
